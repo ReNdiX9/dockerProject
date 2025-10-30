@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+outputs/
+.simulated/
+.azure/
+# VS Code
+.vscode/
+# Python caches
+*.egg-info/

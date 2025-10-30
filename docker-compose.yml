@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  diet:
+    image: yourdockerhubusername/diet-analysis:latest
+    container_name: diet-analysis
+    volumes:
+      - ./:/app
+    command: ["python", "/app/data_analysis.py", "/app/All_Diets.csv", "--out", "/app/outputs"]
