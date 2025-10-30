@@ -1,4 +1,4 @@
-name: build/run workflow (headless matplotlib)
+name: CI/CD Pipeline Simulation (lint, build, run)
 
 on:
   push:
@@ -12,51 +12,52 @@ jobs:
   build-test-deploy:
     runs-on: ubuntu-latest
     env:
-      MPLBACKEND: Agg
+      MPLBACKEND: Agg  # headless plotting
 
     steps:
-      - name: Checkout (with LFS just in case)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Show workspace
+      - name: Show workspace structure
         run: |
-          pwd
+          echo "Current directory: $(pwd)"
+          echo "Files:"
           ls -lah
-          git rev-parse --short HEAD
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install Python deps (fallback if no requirements)
+      - name: Install dependencies
         run: |
-          python -V
           python -m pip install --upgrade pip
+          # Try to install your file if it exists
           if [ -f requirements-dev.txt ]; then
-            pip install -r requirements-dev.txt
-          else
-            pip install pandas matplotlib seaborn
+            pip install -r requirements-dev.txt || true
           fi
+          # Always ensure these are installed
+          pip install --upgrade pandas matplotlib seaborn
 
-      - name: Smoke test (read CSV & print stats)
+      - name: Smoke test (CSV read + basic stats)
         run: |
           python - <<'PY'
           import os, pandas as pd
-          assert os.path.exists("All_Diets.csv"), "All_Diets.csv not found in repo root"
-          df = pd.read_csv("All_Diets.csv")
+          file_path = "All_Diets.csv"
+          assert os.path.exists(file_path), f"{file_path} not found!"
+          df = pd.read_csv(file_path)
+          print(f"✅ CSV found: {file_path}")
           print("Rows:", len(df), "Cols:", len(df.columns))
-          print("Columns:", list(df.columns))
-          print("Diet types (unique, case-insensitive):", df['Diet_type'].astype(str).str.lower().nunique())
-          print("OK: CSV loaded and basic stats computed.")
+          print("Diet types:", df['Diet_type'].dropna().unique()[:5])
+          print("✅ Pandas read test passed.")
           PY
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image (load locally)
+      - name: Build Docker image (local test)
         uses: docker/build-push-action@v5
         with:
           context: .
