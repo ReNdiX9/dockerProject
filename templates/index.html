@@ -17,28 +17,44 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Bar Chart -->
                 <div class="bg-white p-4 shadow-lg rounded-lg">
                     <h3 class="font-semibold">Bar Chart</h3>
-                    <p class="text-sm text-gray-600">Average macronutrient content by diet type.</p>
-                    <canvas id="barChart" class="w-full h-48"></canvas>
+                    <p class="text-sm text-gray-600 mb-3">Average macronutrient content by diet type.</p>
+                    {% if charts.bar_chart %}
+                        <img src="{{ charts.bar_chart }}" alt="Bar Chart" class="w-full h-auto rounded">
+                    {% else %}
+                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
+                    {% endif %}
                 </div>
 
+                <!-- Scatter Plot -->
                 <div class="bg-white p-4 shadow-lg rounded-lg">
                     <h3 class="font-semibold">Scatter Plot</h3>
-                    <p class="text-sm text-gray-600">Nutrient relationships (e.g., protein vs carbs).</p>
-                    <canvas id="scatterPlot" class="w-full h-48"></canvas>
+                    <p class="text-sm text-gray-600 mb-3">Nutrient relationships (e.g., protein vs carbs).</p>
+                    {% if charts.scatter_plot %}
+                        <img src="{{ charts.scatter_plot }}" alt="Scatter Plot" class="w-full h-auto rounded">
+                    {% else %}
+                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
+                    {% endif %}
                 </div>
 
+                <!-- Heatmap -->
                 <div class="bg-white p-4 shadow-lg rounded-lg">
                     <h3 class="font-semibold">Heatmap</h3>
-                    <p class="text-sm text-gray-600">Nutrient correlations.</p>
-                    <div id="heatmap" class="w-full h-48"></div>
+                    <p class="text-sm text-gray-600 mb-3">Nutrient correlations.</p>
+                    {% if charts.heatmap %}
+                        <img src="{{ charts.heatmap }}" alt="Heatmap" class="w-full h-auto rounded">
+                    {% else %}
+                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
+                    {% endif %}
                 </div>
 
+                <!-- Pie Chart (Placeholder for now) -->
                 <div class="bg-white p-4 shadow-lg rounded-lg">
                     <h3 class="font-semibold">Pie Chart</h3>
-                    <p class="text-sm text-gray-600">Recipe distribution by diet type.</p>
-                    <canvas id="pieChart" class="w-full h-48"></canvas>
+                    <p class="text-sm text-gray-600 mb-3">Recipe distribution by diet type.</p>
+                    <p class="text-gray-400 text-sm italic">Coming soon - Generate pie chart in data_analysis.py</p>
                 </div>
             </div>
         </section>
@@ -51,7 +67,8 @@
                     <option value="all">All Diet Types</option>
                     <option value="vegan">Vegan</option>
                     <option value="keto">Keto</option>
-                    <!-- Add more options -->
+                    <option value="paleo">Paleo</option>
+                    <option value="dash">DASH</option>
                 </select>
             </div>
         </section>
@@ -59,9 +76,15 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">API Data Interaction</h2>
             <div class="flex flex-wrap gap-4">
-                <button class="bg-blue-600 text-white py-2 px-4 rounded">Get Nutritional Insights</button>
-                <button class="bg-green-600 text-white py-2 px-4 rounded">Get Recipes</button>
-                <button class="bg-purple-600 text-white py-2 px-4 rounded">Get Clusters</button>
+                <button class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">
+                    Get Nutritional Insights
+                </button>
+                <button class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">
+                    Get Recipes
+                </button>
+                <button class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition">
+                    Get Clusters
+                </button>
             </div>
         </section>
 
