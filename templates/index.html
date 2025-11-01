@@ -50,11 +50,15 @@
                     {% endif %}
                 </div>
 
-                <!-- Pie Chart (Placeholder for now) -->
+                    <!-- Pie Chart -->
                 <div class="bg-white p-4 shadow-lg rounded-lg">
                     <h3 class="font-semibold">Pie Chart</h3>
-                    <p class="text-sm text-gray-600 mb-3">Recipe distribution by diet type.</p>
-                    <p class="text-gray-400 text-sm italic">Coming soon - Generate pie chart in data_analysis.py</p>
+                        <p class="text-sm text-gray-600 mb-3">Recipe distribution by diet type (top categories grouped).</p>
+                        {% if charts.pie_chart %}
+                            <img src="{{ charts.pie_chart }}" alt="Pie Chart" class="w-full h-auto rounded">
+                        {% else %}
+                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
+                        {% endif %}
                 </div>
             </div>
         </section>
@@ -62,15 +66,14 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">Filters and Data Interaction</h2>
             <div class="flex flex-wrap gap-4">
-                <input type="text" placeholder="Search by Diet Type" class="p-2 border rounded w-full sm:w-auto">
-                <select class="p-2 border rounded w-full sm:w-auto">
+                <input id="dietSearch" type="text" placeholder="Search by Diet Type" class="p-2 border rounded w-full sm:w-auto">
+                <select id="dietSelect" class="p-2 border rounded w-full sm:w-auto">
                     <option value="all">All Diet Types</option>
-                    <option value="vegan">Vegan</option>
-                    <option value="keto">Keto</option>
-                    <option value="paleo">Paleo</option>
-                    <option value="dash">DASH</option>
+                    <!-- Options will be populated dynamically -->
                 </select>
             </div>
+            <!-- To render results -->
+            <div id="dietResult" class="mt-4"></div>
         </section>
 
         <section class="mb-8">
@@ -102,6 +105,114 @@
     <footer class="bg-blue-600 p-4 text-white text-center mt-10">
         <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
     </footer>
+    <script>
+async function loadDietOptions() {
+  try {
+    const res = await fetch('/api/diets');
+    const diets = await res.json();
+    const select = document.getElementById('dietSelect');
+    const search = document.getElementById('dietSearch');
+
+    // Add unique options under the default "All Diet Types"
+    diets.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      select.appendChild(opt);
+    });
+
+    // When the user types in the search input, try to pick a matching option
+    search.addEventListener('input', () => {
+      const val = search.value.trim().toLowerCase();
+      // If empty -> show 'all'
+      if (!val) {
+        select.value = 'all';
+        fetchAndRenderAvgMacros('all');
+        return;
+      }
+      // Try to match a diet option
+      const match = diets.find(d => d.toLowerCase().includes(val));
+      if (match) {
+        select.value = match;
+        fetchAndRenderAvgMacros(match);
+      }
+    });
+
+    // When the user changes the dropdown
+    select.addEventListener('change', (e) => {
+      fetchAndRenderAvgMacros(e.target.value);
+    });
+
+    // Initial fetch: show all
+    fetchAndRenderAvgMacros('all');
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById('dietResult').innerHTML =
+      `<p class="text-red-500">Failed to load diet options.</p>`;
+  }
+}
+
+async function fetchAndRenderAvgMacros(diet) {
+  try {
+    const res = await fetch(`/api/avg-macros?diet=${encodeURIComponent(diet)}`);
+    const data = await res.json();
+    const container = document.getElementById('dietResult');
+
+    if (data.error) {
+      container.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+      return;
+    }
+    // data shape: { "Keto": {"Protein(g)":..., "Carbs(g)":..., "Fat(g)":...}, ... }
+
+    const keys = new Set();
+    Object.values(data).forEach(row => {
+      Object.keys(row).forEach(k => keys.add(k));
+    });
+    const cols = Array.from(keys);
+
+    if (Object.keys(data).length === 0) {
+      container.innerHTML = `<p class="text-gray-500">No data for "${diet}".</p>`;
+      return;
+    }
+
+    // Build a simple Tailwind table
+    let html = `
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow rounded">
+          <thead>
+            <tr>
+              <th class="px-4 py-2 text-left border-b">Diet Type</th>
+              ${cols.map(c => `<th class="px-4 py-2 text-left border-b">${c}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    for (const [dietName, row] of Object.entries(data)) {
+      html += `<tr class="hover:bg-gray-50">
+        <td class="px-4 py-2 border-b">${dietName}</td>
+        ${cols.map(c => `<td class="px-4 py-2 border-b">${row[c] ?? ''}</td>`).join('')}
+      </tr>`;
+    }
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container.innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById('dietResult').innerHTML =
+      `<p class="text-red-500">Failed to load averages.</p>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadDietOptions);
+</script>
 
 </body>
 </html>
