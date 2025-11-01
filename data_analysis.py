@@ -256,6 +256,58 @@ def plot_scatter_top5(top5: pd.DataFrame, fig_dir: Path) -> Path:
     plt.close(fig)
     return out_path
 
+# pie chart
+def plot_pie_recipe_distribution(df: pd.DataFrame, fig_dir: Path, top_n: int = 8) -> Path:
+    """
+    Pie chart of how many recipes each Diet_type has.
+    To keep labels readable, we keep top_n categories and group the rest into 'Other'.
+    Uses Matplotlib only (no seaborn), one chart per figure, no explicit colors.
+    """
+    # Count by Diet_type, handle missing
+    counts = (
+        df["Diet_type"]
+        .fillna("Unknown")
+        .astype(str)
+        .str.strip()
+        .replace({"": "Unknown"})
+        .value_counts()
+        .sort_values(ascending=False)
+    )
+
+    # Group small categories into "Other" to avoid label clutter
+    if len(counts) > top_n:
+        top = counts.iloc[:top_n]
+        other_sum = counts.iloc[top_n:].sum()
+        counts = top.append(pd.Series({"Other": other_sum}))
+
+    labels = counts.index.to_list()
+    sizes = counts.values
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    # Show % only for slices >=3% to reduce noise
+    def _pct(p):
+        return f"{p:.1f}%" if p >= 3 else ""
+
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=labels,
+        autopct=_pct,
+        startangle=90,
+    )
+    ax.set_title("Recipe Distribution by Diet Type")
+    ax.axis("equal")  # Equal aspect ratio for a circle
+
+    fig.tight_layout()
+    out_path = fig_dir / f"pie_recipe_distribution_{timestamp()}.png"
+    fig.savefig(out_path, dpi=160)
+    plt.close(fig)
+    return out_path
+
+
+
+
 
 def ensure_output_dirs(out_root: Path) -> Tuple[Path, Path]:
     tables = out_root / "tables"
@@ -295,6 +347,7 @@ def main():
     bar_path = plot_bar_avg_macros(avg_macros, figs_dir)
     heat_path = plot_heatmap_avg_macros(avg_macros, figs_dir)
     scatter_path = plot_scatter_top5(top5, figs_dir)
+    pie_path = plot_pie_recipe_distribution(df, figs_dir)
 
     # Print highlights for quick screenshot
     print("\n=== SUMMARY (copy this into your report) ===")
@@ -314,7 +367,8 @@ def main():
     print("\nSaved figures:")
     print(" -", bar_path)
     print(" -", heat_path)
-    print(" -", scatter_path)
+    print(" -", scatter_path) 
+    print(" -", pie_path)
     print("============================================")
 
 
