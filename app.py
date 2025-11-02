@@ -181,6 +181,8 @@ def api_recipes():
 def clusters():
     return render_template('clusters.html')
 
+#if charts are already in outputs/figures/  run without subprocess part (win-python app.py linux python3 app.py)
+#or just do - sudo apt install python-is-python3 
 if __name__ == '__main__':
     # Automatically run your data analysis script
     csv_path = 'All_Diets.csv'  # adjust if it's in another folder
