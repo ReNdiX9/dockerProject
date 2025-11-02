@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recipe Recommendations</title>
+    <!-- Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100 flex flex-col min-h-screen">
+    <header class="bg-blue-600 p-4 text-white">
+      <h1 class="text-3xl font-semibold">Recipe Recommendations</h1>
+    </header>
+    <main class="flex-grow container mx-auto p-6 flex flex-col justify-between">
+      <!-- Recipe Section -->
+      <section id="recipe-section">
+        <h2 class="text-2xl font-semibold mb-4">Recipe Suggestions</h2>
+        <input
+          id="diet-input"
+          type="text"
+          placeholder="Diet (e.g. paleo)"
+          class="border rounded px-2 py-1"
+        />
+        <input
+          id="cuisine-input"
+          type="text"
+          placeholder="Cuisine (e.g. italian)"
+          class="border rounded px-2 py-1"
+        />
+        <!-- Display Recipe Results-->
+        <button
+          id="get-recipes"
+          class="bg-green-600 text-white py-2 px-4 rounded ml-2 hover:bg-green-700 transition"
+        >
+          Get Recipes
+        </button>
+        <button
+          id="clear-recipes"
+          class="bg-gray-400 text-white py-2 px-4 rounded ml-2 hover:bg-gray-500 transition"
+        >
+          Clear
+        </button>
+
+        <div id="recipe-result" class="mt-4 text-gray-800"></div>
+      </section>
+      <section>
+        <!-- <h2 class="text-2xl font-semibold mb-4">Pagination</h2> -->
+        <div class="flex justify-center gap-2 mt-4">
+          <a href="{{ url_for('index', page=prev_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Previous
+            </button>
+          </a>
+
+          {% for i in range(1, total_pages+1) %}
+          <a href="{{ url_for('index', page=i) }}">
+            <button
+              class="px-3 py-1 {{ i == page and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
+            >
+              {{ i }}
+            </button>
+          </a>
+          {% endfor %}
+
+          <a href="{{ url_for('index', page=next_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Next
+            </button>
+          </a>
+        </div>
+      </section>
+    </main>
+    <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+      <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
+    </footer>
+    <script>
+      // Recipes
+      async function fetchAndRenderRecipes() {
+        const diet = document.getElementById("diet-input").value;
+        const cuisine = document.getElementById("cuisine-input").value;
+
+        try {
+          const res = await fetch(
+            `/api/recipes?diet=${encodeURIComponent(
+              diet
+            )}&cuisine=${encodeURIComponent(cuisine)}`
+          );
+          const data = await res.json();
+          const container = document.getElementById("recipe-result");
+
+          if (data.error) {
+            container.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+            return;
+          }
+
+          if (!data.length) {
+            container.innerHTML = `<p class="text-gray-500">No recipes found.</p>`;
+            return;
+          }
+
+          let html = `
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow rounded">
+          <thead>
+            <tr>
+              <th class="px-4 py-2 border-b">Recipe</th>
+              <th class="px-4 py-2 border-b">Diet</th>
+              <th class="px-4 py-2 border-b">Cuisine</th>
+              <th class="px-4 py-2 border-b">Protein(g)</th>
+              <th class="px-4 py-2 border-b">Carbs(g)</th>
+              <th class="px-4 py-2 border-b">Fat(g)</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+          data.forEach((r) => {
+            html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2 border-b">${r.Recipe_name}</td>
+          <td class="px-4 py-2 border-b">${r.Diet_type}</td>
+          <td class="px-4 py-2 border-b">${r.Cuisine_type}</td>
+          <td class="px-4 py-2 border-b">${r["Protein(g)"]}</td>
+          <td class="px-4 py-2 border-b">${r["Carbs(g)"]}</td>
+          <td class="px-4 py-2 border-b">${r["Fat(g)"]}</td>
+        </tr>
+      `;
+          });
+
+          html += `</tbody></table></div>`;
+          container.innerHTML = html;
+        } catch (e) {
+          console.error(e);
+          document.getElementById(
+            "recipe-result"
+          ).innerHTML = `<p class="text-red-500">Failed to load recipes.</p>`;
+        }
+      }
+
+      document
+        .getElementById("get-recipes")
+        .addEventListener("click", fetchAndRenderRecipes);
+
+      // Clear Recipes
+      document.getElementById("clear-recipes").addEventListener("click", () => {
+        document.getElementById("recipe-result").innerHTML = "";
+        document.getElementById("diet-input").value = "";
+        document.getElementById("cuisine-input").value = "";
+      });
+    </script>
+  </body>
+</html>

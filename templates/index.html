@@ -1,218 +1,296 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nutritional Insights</title>
     <!-- Tailwind CSS CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
-</head>
-<body class="bg-gray-100">
-
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100">
     <header class="bg-blue-600 p-4 text-white">
-        <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+      <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
     </header>
 
     <main class="container mx-auto p-6">
-        <section class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Bar Chart -->
-                <div class="bg-white p-4 shadow-lg rounded-lg">
-                    <h3 class="font-semibold">Bar Chart</h3>
-                    <p class="text-sm text-gray-600 mb-3">Average macronutrient content by diet type.</p>
-                    {% if charts.bar_chart %}
-                        <img src="{{ charts.bar_chart }}" alt="Bar Chart" class="w-full h-auto rounded">
-                    {% else %}
-                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
-                    {% endif %}
-                </div>
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">
+          Explore Nutritional Insights
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <!-- Bar Chart -->
+          <div class="bg-white p-4 shadow-lg rounded-lg">
+            <h3 class="font-semibold">Bar Chart</h3>
+            <p class="text-sm text-gray-600 mb-3">
+              Average macronutrient content by diet type.
+            </p>
+            {% if charts.bar_chart %}
+            <img
+              src="{{ charts.bar_chart }}"
+              alt="Bar Chart"
+              class="w-full h-auto rounded"
+            />
+            {% else %}
+            <p class="text-red-500 text-sm">
+              Chart not found. Please run data_analysis.py first.
+            </p>
+            {% endif %}
+          </div>
 
-                <!-- Scatter Plot -->
-                <div class="bg-white p-4 shadow-lg rounded-lg">
-                    <h3 class="font-semibold">Scatter Plot</h3>
-                    <p class="text-sm text-gray-600 mb-3">Nutrient relationships (e.g., protein vs carbs).</p>
-                    {% if charts.scatter_plot %}
-                        <img src="{{ charts.scatter_plot }}" alt="Scatter Plot" class="w-full h-auto rounded">
-                    {% else %}
-                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
-                    {% endif %}
-                </div>
+          <!-- Scatter Plot -->
+          <div class="bg-white p-4 shadow-lg rounded-lg">
+            <h3 class="font-semibold">Scatter Plot</h3>
+            <p class="text-sm text-gray-600 mb-3">
+              Nutrient relationships (e.g., protein vs carbs).
+            </p>
+            {% if charts.scatter_plot %}
+            <img
+              src="{{ charts.scatter_plot }}"
+              alt="Scatter Plot"
+              class="w-full h-auto rounded"
+            />
+            {% else %}
+            <p class="text-red-500 text-sm">
+              Chart not found. Please run data_analysis.py first.
+            </p>
+            {% endif %}
+          </div>
 
-                <!-- Heatmap -->
-                <div class="bg-white p-4 shadow-lg rounded-lg">
-                    <h3 class="font-semibold">Heatmap</h3>
-                    <p class="text-sm text-gray-600 mb-3">Nutrient correlations.</p>
-                    {% if charts.heatmap %}
-                        <img src="{{ charts.heatmap }}" alt="Heatmap" class="w-full h-auto rounded">
-                    {% else %}
-                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
-                    {% endif %}
-                </div>
+          <!-- Heatmap -->
+          <div class="bg-white p-4 shadow-lg rounded-lg">
+            <h3 class="font-semibold">Heatmap</h3>
+            <p class="text-sm text-gray-600 mb-3">Nutrient correlations.</p>
+            {% if charts.heatmap %}
+            <img
+              src="{{ charts.heatmap }}"
+              alt="Heatmap"
+              class="w-full h-auto rounded"
+            />
+            {% else %}
+            <p class="text-red-500 text-sm">
+              Chart not found. Please run data_analysis.py first.
+            </p>
+            {% endif %}
+          </div>
 
-                    <!-- Pie Chart -->
-                <div class="bg-white p-4 shadow-lg rounded-lg">
-                    <h3 class="font-semibold">Pie Chart</h3>
-                        <p class="text-sm text-gray-600 mb-3">Recipe distribution by diet type (top categories grouped).</p>
-                        {% if charts.pie_chart %}
-                            <img src="{{ charts.pie_chart }}" alt="Pie Chart" class="w-full h-auto rounded">
-                        {% else %}
-                        <p class="text-red-500 text-sm">Chart not found. Please run data_analysis.py first.</p>
-                        {% endif %}
-                </div>
-            </div>
-        </section>
+          <!-- Pie Chart -->
+          <div class="bg-white p-4 shadow-lg rounded-lg">
+            <h3 class="font-semibold">Pie Chart</h3>
+            <p class="text-sm text-gray-600 mb-3">
+              Recipe distribution by diet type (top categories grouped).
+            </p>
+            {% if charts.pie_chart %}
+            <img
+              src="{{ charts.pie_chart }}"
+              alt="Pie Chart"
+              class="w-full h-auto rounded"
+            />
+            {% else %}
+            <p class="text-red-500 text-sm">
+              Chart not found. Please run data_analysis.py first.
+            </p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
 
-        <section class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Filters and Data Interaction</h2>
-            <div class="flex flex-wrap gap-4">
-                <input id="dietSearch" type="text" placeholder="Search by Diet Type" class="p-2 border rounded w-full sm:w-auto">
-                <select id="dietSelect" class="p-2 border rounded w-full sm:w-auto">
-                    <option value="all">All Diet Types</option>
-                    <!-- Options will be populated dynamically -->
-                </select>
-            </div>
-            <!-- To render results -->
-            <div id="dietResult" class="mt-4"></div>
-        </section>
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">
+          Filters and Data Interaction
+        </h2>
+        <div class="flex flex-wrap gap-4">
+          <input
+            id="dietSearch"
+            type="text"
+            placeholder="Search by Diet Type"
+            class="p-2 border rounded w-full sm:w-auto"
+          />
+          <select id="dietSelect" class="p-2 border rounded w-full sm:w-auto">
+            <option value="all">All Diet Types</option>
+          </select>
+        </div>
+        <div id="dietResult" class="mt-4"></div>
+      </section>
 
-        <section class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">API Data Interaction</h2>
-            <div class="flex flex-wrap gap-4">
-                <button class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">
-                    Get Nutritional Insights
-                </button>
-                <button class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">
-                    Get Recipes
-                </button>
-                <button class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition">
-                    Get Clusters
-                </button>
-            </div>
-        </section>
+      <section id="api-buttons" class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">API Data Interaction</h2>
+        <div class="flex flex-wrap gap-4">
+          <!-- Nutritional Insights Button -->
+          <a href="{{ url_for('index', page=2) }}">
+            <button
+              class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
+            >
+              Get Nutritional Insights
+            </button>
+          </a>
+          <!-- Recipes Button -->
+          <a href="{{ url_for('index', page=3) }}">
+            <button
+              class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
+            >
+              Get Recipes
+            </button>
+          </a>
+          <!-- Clusters Button -->
+          <a href="{{ url_for('index', page=4) }}">
+            <button
+              class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition"
+            >
+              Get Clusters
+            </button>
+          </a>
+        </div>
+      </section>
 
-        <section>
-            <h2 class="text-2xl font-semibold mb-4">Pagination</h2>
-            <div class="flex justify-center gap-2 mt-4">
-                <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Previous</button>
-                <button class="px-3 py-1 bg-blue-600 text-white rounded">1</button>
-                <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">2</button>
-                <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Next</button>
-            </div>
-        </section>
+      <section>
+        <!-- <h2 class="text-2xl font-semibold mb-4">Pagination</h2> -->
+        <div class="flex justify-center gap-2 mt-4">
+          <a href="{{ url_for('index', page=prev_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Previous
+            </button>
+          </a>
+
+          {% for i in range(1, total_pages+1) %}
+          <a href="{{ url_for('index', page=i) }}">
+            <button
+              class="px-3 py-1 {{ i == page and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
+            >
+              {{ i }}
+            </button>
+          </a>
+          {% endfor %}
+
+          <a href="{{ url_for('index', page=next_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Next
+            </button>
+          </a>
+        </div>
+      </section>
     </main>
 
     <footer class="bg-blue-600 p-4 text-white text-center mt-10">
-        <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
+      <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
     </footer>
     <script>
-async function loadDietOptions() {
-  try {
-    const res = await fetch('/api/diets');
-    const diets = await res.json();
-    const select = document.getElementById('dietSelect');
-    const search = document.getElementById('dietSearch');
+      async function loadDietOptions() {
+        try {
+          const res = await fetch("/api/diets");
+          const diets = await res.json();
+          const select = document.getElementById("dietSelect");
+          const search = document.getElementById("dietSearch");
 
-    // Add unique options under the default "All Diet Types"
-    diets.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d;
-      select.appendChild(opt);
-    });
+          // Add unique options under the default "All Diet Types"
+          diets.forEach((d) => {
+            const opt = document.createElement("option");
+            opt.value = d;
+            opt.textContent = d;
+            select.appendChild(opt);
+          });
 
-    // When the user types in the search input, try to pick a matching option
-    search.addEventListener('input', () => {
-      const val = search.value.trim().toLowerCase();
-      // If empty -> show 'all'
-      if (!val) {
-        select.value = 'all';
-        fetchAndRenderAvgMacros('all');
-        return;
+          // When the user types in the search input, try to pick a matching option
+          search.addEventListener("input", () => {
+            const val = search.value.trim().toLowerCase();
+            // If empty -> show 'all'
+            if (!val) {
+              select.value = "all";
+              fetchAndRenderAvgMacros("all");
+              return;
+            }
+            // Try to match a diet option
+            const match = diets.find((d) => d.toLowerCase().includes(val));
+            if (match) {
+              select.value = match;
+              fetchAndRenderAvgMacros(match);
+            }
+          });
+
+          // When the user changes the dropdown
+          select.addEventListener("change", (e) => {
+            fetchAndRenderAvgMacros(e.target.value);
+          });
+
+          // Initial fetch: show all
+          fetchAndRenderAvgMacros("all");
+        } catch (e) {
+          console.error(e);
+          document.getElementById(
+            "dietResult"
+          ).innerHTML = `<p class="text-red-500">Failed to load diet options.</p>`;
+        }
       }
-      // Try to match a diet option
-      const match = diets.find(d => d.toLowerCase().includes(val));
-      if (match) {
-        select.value = match;
-        fetchAndRenderAvgMacros(match);
-      }
-    });
 
-    // When the user changes the dropdown
-    select.addEventListener('change', (e) => {
-      fetchAndRenderAvgMacros(e.target.value);
-    });
+      async function fetchAndRenderAvgMacros(diet) {
+        try {
+          const res = await fetch(
+            `/api/avg-macros?diet=${encodeURIComponent(diet)}`
+          );
+          const data = await res.json();
+          const container = document.getElementById("dietResult");
 
-    // Initial fetch: show all
-    fetchAndRenderAvgMacros('all');
+          if (data.error) {
+            container.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+            return;
+          }
+          // data shape: { "Keto": {"Protein(g)":..., "Carbs(g)":..., "Fat(g)":...}, ... }
 
-  } catch (e) {
-    console.error(e);
-    document.getElementById('dietResult').innerHTML =
-      `<p class="text-red-500">Failed to load diet options.</p>`;
-  }
-}
+          const keys = new Set();
+          Object.values(data).forEach((row) => {
+            Object.keys(row).forEach((k) => keys.add(k));
+          });
+          const cols = Array.from(keys);
 
-async function fetchAndRenderAvgMacros(diet) {
-  try {
-    const res = await fetch(`/api/avg-macros?diet=${encodeURIComponent(diet)}`);
-    const data = await res.json();
-    const container = document.getElementById('dietResult');
+          if (Object.keys(data).length === 0) {
+            container.innerHTML = `<p class="text-gray-500">No data for "${diet}".</p>`;
+            return;
+          }
 
-    if (data.error) {
-      container.innerHTML = `<p class="text-red-500">${data.error}</p>`;
-      return;
-    }
-    // data shape: { "Keto": {"Protein(g)":..., "Carbs(g)":..., "Fat(g)":...}, ... }
-
-    const keys = new Set();
-    Object.values(data).forEach(row => {
-      Object.keys(row).forEach(k => keys.add(k));
-    });
-    const cols = Array.from(keys);
-
-    if (Object.keys(data).length === 0) {
-      container.innerHTML = `<p class="text-gray-500">No data for "${diet}".</p>`;
-      return;
-    }
-
-    // Build a simple Tailwind table
-    let html = `
+          // Build a simple Tailwind table
+          let html = `
       <div class="overflow-x-auto">
         <table class="min-w-full bg-white shadow rounded">
           <thead>
             <tr>
               <th class="px-4 py-2 text-left border-b">Diet Type</th>
-              ${cols.map(c => `<th class="px-4 py-2 text-left border-b">${c}</th>`).join('')}
+              ${cols
+                .map(
+                  (c) => `<th class="px-4 py-2 text-left border-b">${c}</th>`
+                )
+                .join("")}
             </tr>
           </thead>
           <tbody>
     `;
 
-    for (const [dietName, row] of Object.entries(data)) {
-      html += `<tr class="hover:bg-gray-50">
+          for (const [dietName, row] of Object.entries(data)) {
+            html += `<tr class="hover:bg-gray-50">
         <td class="px-4 py-2 border-b">${dietName}</td>
-        ${cols.map(c => `<td class="px-4 py-2 border-b">${row[c] ?? ''}</td>`).join('')}
+        ${cols
+          .map((c) => `<td class="px-4 py-2 border-b">${row[c] ?? ""}</td>`)
+          .join("")}
       </tr>`;
-    }
+          }
 
-    html += `
+          html += `
           </tbody>
         </table>
       </div>
     `;
 
-    container.innerHTML = html;
+          container.innerHTML = html;
+        } catch (e) {
+          console.error(e);
+          document.getElementById(
+            "dietResult"
+          ).innerHTML = `<p class="text-red-500">Failed to load averages.</p>`;
+        }
+      }
 
-  } catch (e) {
-    console.error(e);
-    document.getElementById('dietResult').innerHTML =
-      `<p class="text-red-500">Failed to load averages.</p>`;
-  }
-}
-
-document.addEventListener('DOMContentLoaded', loadDietOptions);
-</script>
-
-</body>
+      document.addEventListener("DOMContentLoaded", loadDietOptions);
+    </script>
+  </body>
 </html>
