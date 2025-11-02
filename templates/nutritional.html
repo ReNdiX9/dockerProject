@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nutritional Insights</title>
+    <!-- Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100 flex flex-col min-h-screen">
+    <header class="bg-blue-600 p-4 text-white">
+      <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+    </header>
+
+    <main class="flex-grow container mx-auto p-6 flex flex-col justify-between">
+      <!-- Nutritional Insights Section -->
+      <section id="nutritional-insights">
+        <h2 class="text-2xl font-semibold mb-4">Nutritional Insights</h2>
+        <label for="group-select" class="text-gray-700 font-medium mr-2"
+          >Group by:</label
+        >
+        <select id="group-select" class="border rounded px-2 py-1">
+          <option value="Diet_type">Diet Type</option>
+          <option value="Cuisine_type">Cuisine Type</option>
+        </select>
+        <!-- Display Nutritional Insights Results-->
+        <button
+          id="get-insights"
+          class="bg-blue-600 text-white py-2 px-4 rounded ml-2 hover:bg-blue-700 transition"
+        >
+          Get Insights
+        </button>
+        <button
+          id="clear-insights"
+          class="bg-gray-400 text-white py-2 px-4 rounded ml-2 hover:bg-gray-500 transition"
+        >
+          Clear
+        </button>
+        <div id="insights-result" class="mt-4 text-gray-800"></div>
+      </section>
+      <section>
+        <!-- <h2 class="text-2xl font-semibold mb-4">Pagination</h2> -->
+        <div class="flex justify-center gap-2 mt-4">
+          <a href="{{ url_for('index', page=prev_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Previous
+            </button>
+          </a>
+
+          {% for i in range(1, total_pages+1) %}
+          <a href="{{ url_for('index', page=i) }}">
+            <button
+              class="px-3 py-1 {{ i == page and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
+            >
+              {{ i }}
+            </button>
+          </a>
+          {% endfor %}
+
+          <a href="{{ url_for('index', page=next_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Next
+            </button>
+          </a>
+        </div>
+      </section>
+    </main>
+    <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+      <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
+    </footer>
+    <script>
+      // Nutritional Insights
+      async function fetchAndRenderNutritionalInsights() {
+        const group = document.getElementById("group-select").value;
+        try {
+          const res = await fetch(`/api/nutritional-insight?group=${group}`);
+          const data = await res.json();
+          const container = document.getElementById("insights-result");
+
+          if (data.error) {
+            container.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+            return;
+          }
+
+          let html = `
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow rounded">
+          <thead>
+            <tr>
+              <th class="px-4 py-2 text-left border-b">${group}</th>
+              <th class="px-4 py-2 text-left border-b">Protein(g)</th>
+              <th class="px-4 py-2 text-left border-b">Carbs(g)</th>
+              <th class="px-4 py-2 text-left border-b">Fat(g)</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+          for (const [name, row] of Object.entries(data)) {
+            html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2 border-b">${name}</td>
+          <td class="px-4 py-2 border-b">${row["Protein(g)"]}</td>
+          <td class="px-4 py-2 border-b">${row["Carbs(g)"]}</td>
+          <td class="px-4 py-2 border-b">${row["Fat(g)"]}</td>
+        </tr>
+      `;
+          }
+
+          html += `</tbody></table></div>`;
+          container.innerHTML = html;
+        } catch (e) {
+          console.error(e);
+          document.getElementById(
+            "insights-result"
+          ).innerHTML = `<p class="text-red-500">Failed to load insights.</p>`;
+        }
+      }
+
+      document
+        .getElementById("get-insights")
+        .addEventListener("click", fetchAndRenderNutritionalInsights);
+
+      // Clear Nutritional Insights
+      document
+        .getElementById("clear-insights")
+        .addEventListener("click", () => {
+          document.getElementById("insights-result").innerHTML = "";
+        });
+    </script>
+  </body>
+</html>

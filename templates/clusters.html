@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nutritional Insights</title>
+    <!-- Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100 flex flex-col min-h-screen">
+    <header class="bg-blue-600 p-4 text-white">
+      <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+    </header>
+
+    <main class="flex-grow container mx-auto p-6 flex flex-col justify-between">
+      <section id="clusters-section">
+        <h2 class="text-2xl font-semibold mb-4">Cluster Analysis</h2>
+      </section>
+      <section>
+        <!-- <h2 class="text-2xl font-semibold mb-4">Pagination</h2> -->
+        <div class="flex justify-center gap-2 mt-4">
+          <a href="{{ url_for('index', page=prev_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Previous
+            </button>
+          </a>
+
+          {% for i in range(1, total_pages+1) %}
+          <a href="{{ url_for('index', page=i) }}">
+            <button
+              class="px-3 py-1 {{ i == page and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
+            >
+              {{ i }}
+            </button>
+          </a>
+          {% endfor %}
+
+          <a href="{{ url_for('index', page=next_page) }}">
+            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+              Next
+            </button>
+          </a>
+        </div>
+      </section>
+    </main>
+    <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+      <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
+    </footer>
+    <script>
+        
+    </script>
+  </body>
+</html>
