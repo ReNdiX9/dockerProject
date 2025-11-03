@@ -270,11 +270,6 @@ def api_get_cluster_recipes(cluster_id):
     
     return jsonify(cluster_recipes)
 
-# Add this test route
-@app.route('/test-clusters')
-def test_clusters():
-    return "Clusters route is working"
-
 #if charts are already in outputs/figures/  run without subprocess part (win-python app.py linux python3 app.py)
 #or just do - sudo apt install python-is-python3 
 if __name__ == '__main__':

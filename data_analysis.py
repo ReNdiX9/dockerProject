@@ -265,28 +265,54 @@ def plot_pie_recipe_distribution(df: pd.DataFrame, fig_dir: Path, top_n: int = 8
     To keep labels readable, we keep top_n categories and group the rest into 'Other'.
     Uses Matplotlib only (no seaborn), one chart per figure, no explicit colors.
     """
-    # Count by Diet_type, handle missing
-    counts = (
-        df["Diet_type"]
-        .fillna("Unknown")
-        .astype(str)
-        .str.strip()
-        .replace({"": "Unknown"})
-        .value_counts()
-        .sort_values(ascending=False)
-    )
+    try:
+        # Count by Diet_type, handle missing
+        counts = (
+            df["Diet_type"]
+            .fillna("Unknown")
+            .astype(str)
+            .str.strip()
+            .replace({"": "Unknown"})
+            .value_counts()
+            .sort_values(ascending=False)
+        )
 
-    # Group small categories into "Other" to avoid label clutter
-    if len(counts) > top_n:
-        top = counts.iloc[:top_n]
-        other_sum = counts.iloc[top_n:].sum()
-        counts = top.append(pd.Series({"Other": other_sum}))
+        # Group small categories into "Other" to avoid label clutter
+        if len(counts) > top_n:
+            top = counts.iloc[:top_n]
+            other_sum = counts.iloc[top_n:].sum()
+            counts = top.append(pd.Series({"Other": other_sum}))
 
-    labels = counts.index.to_list()
-    sizes = counts.values
+        labels = counts.index.to_list()
+        sizes = counts.values
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        # Show % only for slices >=3% to reduce noise
+        def _pct(p):
+            return f"{p:.1f}%" if p >= 3 else ""
+
+        wedges, texts, autotexts = ax.pie(
+            sizes,
+            labels=labels,
+            autopct=_pct,
+            startangle=90,
+        )
+        ax.set_title("Recipe Distribution by Diet Type")
+        ax.axis("equal")  # Equal aspect ratio for a circle
+
+        fig.tight_layout()
+        out_path = fig_dir / f"pie_recipe_distribution_{timestamp()}.png"
+        fig.savefig(out_path, dpi=160)
+        plt.close(fig)
+        return out_path
+        
+    except Exception as e:
+        print(f"Error generating pie chart: {e}")
+        # Return a dummy path even if there's an error
+        return fig_dir / f"pie_recipe_distribution_error_{timestamp()}.png"
+
 
 def plot_clusters(df: pd.DataFrame, fig_dir: Path) -> Path:
     """
@@ -386,9 +412,9 @@ def compute_cluster_insights(df: pd.DataFrame) -> pd.DataFrame:
         insight = {
             'Cluster': cluster,
             'Total_Recipes': len(cluster_data),
-            'Avg_Protein': cluster_data['Protein(g)'].mean(),
-            'Avg_Carbs': cluster_data['Carbs(g)'].mean(),
-            'Avg_Fat': cluster_data['Fat(g)'].mean(),
+            'Avg_Protein': round(cluster_data['Protein(g)'].mean(), 2), 
+            'Avg_Carbs': round(cluster_data['Carbs(g)'].mean(), 2),      
+            'Avg_Fat': round(cluster_data['Fat(g)'].mean(), 2),          
             'Common_Diet': cluster_data['Diet_type'].mode().iloc[0] if not cluster_data['Diet_type'].mode().empty else 'Unknown',
             'Common_Cuisine': cluster_data['Cuisine_type'].mode().iloc[0] if not cluster_data['Cuisine_type'].mode().empty else 'Unknown',
             'Protein_Range': f"{cluster_data['Protein(g)'].min():.1f}-{cluster_data['Protein(g)'].max():.1f}",
@@ -399,27 +425,7 @@ def compute_cluster_insights(df: pd.DataFrame) -> pd.DataFrame:
     
     return pd.DataFrame(insights)
 
-    # Show % only for slices >=3% to reduce noise
-    def _pct(p):
-        return f"{p:.1f}%" if p >= 3 else ""
-
-    wedges, texts, autotexts = ax.pie(
-        sizes,
-        labels=labels,
-        autopct=_pct,
-        startangle=90,
-    )
-    ax.set_title("Recipe Distribution by Diet Type")
-    ax.axis("equal")  # Equal aspect ratio for a circle
-
-    fig.tight_layout()
-    out_path = fig_dir / f"pie_recipe_distribution_{timestamp()}.png"
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
-    return out_path
-
-
-
+   
 
 
 def ensure_output_dirs(out_root: Path) -> Tuple[Path, Path]:
