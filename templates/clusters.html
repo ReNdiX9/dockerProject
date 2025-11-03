@@ -3,27 +3,92 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nutritional Insights</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Recipe Clusters - Nutritional Insights</title>
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
       rel="stylesheet"
     />
+    <style>
+      .cluster-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .loading {
+        text-align: center;
+        padding: 2rem;
+        color: #666;
+      }
+    </style>
   </head>
   <body class="bg-gray-100 flex flex-col min-h-screen">
     <header class="bg-blue-600 p-4 text-white">
-      <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+      <h1 class="text-3xl font-semibold">Recipe Clusters Analysis</h1>
+      <p class="text-blue-100">Grouping recipes by macronutrient profiles using K-means clustering</p>
     </header>
 
-    <main class="flex-grow container mx-auto p-6 flex flex-col justify-between">
-      <section id="clusters-section">
-        <h2 class="text-2xl font-semibold mb-4">Cluster Analysis</h2>
+    <main class="flex-grow container mx-auto p-6">
+      <!-- Cluster Visualization -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Cluster Visualization</h2>
+        <div class="bg-white p-4 rounded-lg shadow">
+          {% if charts.cluster_chart %}
+            <img src="{{ charts.cluster_chart }}" alt="Cluster Analysis" class="w-full max-w-4xl mx-auto">
+          {% else %}
+            <div class="loading">
+              <p>No cluster visualization found. Run the data analysis first.</p>
+              <p class="text-sm mt-2">Make sure to run: <code>python data_analysis.py All_Diets.csv</code></p>
+            </div>
+          {% endif %}
+        </div>
       </section>
+
+      <!-- Cluster Summary -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Cluster Summary</h2>
+        <div id="clusters-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="loading">Loading cluster data...</div>
+        </div>
+      </section>
+
+      <!-- Cluster Recipes -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Explore Recipes by Cluster</h2>
+        <div class="mb-4">
+          <label for="cluster-select" class="block text-sm font-medium text-gray-700">Select Cluster:</label>
+          <select id="cluster-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+            <option value="">Select a cluster...</option>
+          </select>
+        </div>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diet</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuisine</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Protein (g)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carbs (g)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fat (g)</th>
+                </tr>
+              </thead>
+              <tbody id="recipes-table-body" class="bg-white divide-y divide-gray-200">
+                <tr>
+                  <td colspan="6" class="px-6 py-4 text-center text-gray-500">Select a cluster to view recipes</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pagination -->
       <section>
-        <!-- <h2 class="text-2xl font-semibold mb-4">Pagination</h2> -->
-        <div class="flex justify-center gap-2 mt-4">
+        <div class="flex justify-center gap-2 mt-8">
           <a href="{{ url_for('index', page=prev_page) }}">
-            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+            <button class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition duration-200">
               Previous
             </button>
           </a>
@@ -31,7 +96,7 @@
           {% for i in range(1, total_pages+1) %}
           <a href="{{ url_for('index', page=i) }}">
             <button
-              class="px-3 py-1 {{ i == page and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
+              class="px-4 py-2 {{ 'bg-blue-600 text-white' if i == page else 'bg-gray-300 hover:bg-gray-400' }} rounded transition duration-200"
             >
               {{ i }}
             </button>
@@ -39,18 +104,131 @@
           {% endfor %}
 
           <a href="{{ url_for('index', page=next_page) }}">
-            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+            <button class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition duration-200">
               Next
             </button>
           </a>
         </div>
       </section>
     </main>
+
     <footer class="bg-blue-600 p-4 text-white text-center mt-10">
       <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
     </footer>
+
     <script>
+      // Load clusters summary
+      function loadClustersSummary() {
+        fetch('/api/clusters')
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.json();
+          })
+          .then(data => {
+            const summaryContainer = document.getElementById('clusters-summary');
+            const clusterSelect = document.getElementById('cluster-select');
+            
+            if (!data.clusters || data.clusters.length === 0) {
+              summaryContainer.innerHTML = '<div class="loading">No cluster data available</div>';
+              return;
+            }
+            
+            summaryContainer.innerHTML = '';
+            clusterSelect.innerHTML = '<option value="">Select a cluster...</option>';
+            
+            data.clusters.forEach(cluster => {
+              // Create cluster card
+              const clusterCard = document.createElement('div');
+              clusterCard.className = 'cluster-card';
+              clusterCard.innerHTML = `
+                <h3 class="text-lg font-semibold text-blue-600 mb-2">Cluster ${cluster.cluster}</h3>
+                <p class="text-sm text-gray-600 mb-3">${cluster.description}</p>
+                <div class="space-y-1 text-sm">
+                  <p><span class="font-medium">Recipes:</span> ${cluster.recipe_count}</p>
+                  <p><span class="font-medium">Avg Protein:</span> ${cluster.avg_protein.toFixed(1)}g</p>
+                  <p><span class="font-medium">Avg Carbs:</span> ${cluster.avg_carbs.toFixed(1)}g</p>
+                  <p><span class="font-medium">Avg Fat:</span> ${cluster.avg_fat.toFixed(1)}g</p>
+                  <p><span class="font-medium">Common Diet:</span> ${cluster.common_diet}</p>
+                  <p><span class="font-medium">Common Cuisine:</span> ${cluster.common_cuisine}</p>
+                </div>
+              `;
+              summaryContainer.appendChild(clusterCard);
+              
+              // Add to select dropdown
+              const option = document.createElement('option');
+              option.value = cluster.cluster;
+              option.textContent = `Cluster ${cluster.cluster} - ${cluster.description} (${cluster.recipe_count} recipes)`;
+              clusterSelect.appendChild(option);
+            });
+          })
+          .catch(error => {
+            console.error('Error loading clusters:', error);
+            const summaryContainer = document.getElementById('clusters-summary');
+            summaryContainer.innerHTML = `
+              <div class="loading">
+                <p>Error loading cluster data</p>
+                <p class="text-sm">Check console for details</p>
+              </div>
+            `;
+          });
+      }
+
+      // Load recipes for selected cluster
+      function loadClusterRecipes(clusterId) {
+        const tbody = document.getElementById('recipes-table-body');
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading recipes...</td></tr>';
         
+        fetch(`/api/cluster-recipes/${clusterId}`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.json();
+          })
+          .then(recipes => {
+            tbody.innerHTML = '';
+            
+            if (!recipes || recipes.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No recipes found for this cluster</td></tr>';
+              return;
+            }
+            
+            recipes.forEach(recipe => {
+              const row = document.createElement('tr');
+              row.className = 'hover:bg-gray-50';
+              row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${recipe.Recipe_name || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recipe.Diet_type || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recipe.Cuisine_type || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recipe['Protein(g)'] !== undefined ? recipe['Protein(g)'] : 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recipe['Carbs(g)'] !== undefined ? recipe['Carbs(g)'] : 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recipe['Fat(g)'] !== undefined ? recipe['Fat(g)'] : 'N/A'}</td>
+              `;
+              tbody.appendChild(row);
+            });
+          })
+          .catch(error => {
+            console.error('Error loading cluster recipes:', error);
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error loading recipes</td></tr>';
+          });
+      }
+
+      // Initialize when page loads
+      document.addEventListener('DOMContentLoaded', function() {
+        loadClustersSummary();
+        
+        document.getElementById('cluster-select').addEventListener('change', function() {
+          const clusterId = this.value;
+          if (clusterId) {
+            loadClusterRecipes(clusterId);
+          } else {
+            document.getElementById('recipes-table-body').innerHTML = 
+              '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Select a cluster to view recipes</td></tr>';
+          }
+        });
+      });
     </script>
   </body>
 </html>

@@ -41,6 +41,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 REQUIRED_COLUMNS = [
     "Diet_type",
@@ -286,6 +288,117 @@ def plot_pie_recipe_distribution(df: pd.DataFrame, fig_dir: Path, top_n: int = 8
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
+def plot_clusters(df: pd.DataFrame, fig_dir: Path) -> Path:
+    """
+    Perform K-means clustering on macronutrients and create visualization
+    """
+    # Prepare features for clustering
+    features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
+    
+    # Standardize the features
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(features)
+    
+    # Determine optimal number of clusters using elbow method
+    inertia = []
+    k_range = range(1, 11)
+    
+    for k in k_range:
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+        kmeans.fit(features_scaled)
+        inertia.append(kmeans.inertia_)
+    
+    # Use elbow method to find optimal k
+    optimal_k = 4
+    
+    # Perform clustering with optimal k
+    kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+    df['Cluster'] = kmeans.fit_predict(features_scaled)
+    
+    # Create visualization
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    
+    # Plot 1: Protein vs Carbs colored by cluster
+    scatter1 = axes[0, 0].scatter(df['Protein(g)'], df['Carbs(g)'], 
+                                 c=df['Cluster'], cmap='viridis', alpha=0.7)
+    axes[0, 0].set_xlabel('Protein (g)')
+    axes[0, 0].set_ylabel('Carbs (g)')
+    axes[0, 0].set_title('Clusters: Protein vs Carbs')
+    plt.colorbar(scatter1, ax=axes[0, 0])
+    
+    # Plot 2: Protein vs Fat colored by cluster
+    scatter2 = axes[0, 1].scatter(df['Protein(g)'], df['Fat(g)'], 
+                                 c=df['Cluster'], cmap='viridis', alpha=0.7)
+    axes[0, 1].set_xlabel('Protein (g)')
+    axes[0, 1].set_ylabel('Fat (g)')
+    axes[0, 1].set_title('Clusters: Protein vs Fat')
+    plt.colorbar(scatter2, ax=axes[0, 1])
+    
+    # Plot 3: Carbs vs Fat colored by cluster
+    scatter3 = axes[1, 0].scatter(df['Carbs(g)'], df['Fat(g)'], 
+                                 c=df['Cluster'], cmap='viridis', alpha=0.7)
+    axes[1, 0].set_xlabel('Carbs (g)')
+    axes[1, 0].set_ylabel('Fat (g)')
+    axes[1, 0].set_title('Clusters: Carbs vs Fat')
+    plt.colorbar(scatter3, ax=axes[1, 0])
+    
+    # Plot 4: Elbow method
+    axes[1, 1].plot(k_range, inertia, 'bo-')
+    axes[1, 1].set_xlabel('Number of Clusters (k)')
+    axes[1, 1].set_ylabel('Inertia')
+    axes[1, 1].set_title('Elbow Method for Optimal k')
+    axes[1, 1].axvline(optimal_k, color='red', linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
+    
+    out_path = fig_dir / f"clusters_{timestamp()}.png"
+    fig.savefig(out_path, dpi=160)
+    plt.close(fig)
+    
+    # Save cluster information
+    cluster_summary = df.groupby('Cluster').agg({
+        'Protein(g)': ['mean', 'std'],
+        'Carbs(g)': ['mean', 'std'],
+        'Fat(g)': ['mean', 'std'],
+        'Recipe_name': 'count'
+    }).round(2)
+    
+    cluster_summary.columns = ['_'.join(col).strip() for col in cluster_summary.columns.values]
+    cluster_summary = cluster_summary.rename(columns={'Recipe_name_count': 'Recipe_Count'})
+    
+    tables_dir = fig_dir.parent / "tables"
+    tables_dir.mkdir(exist_ok=True)
+    cluster_summary.to_csv(tables_dir / f"cluster_summary_{timestamp()}.csv")
+    
+    return out_path
+
+def compute_cluster_insights(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute detailed insights for each cluster
+    """
+    if 'Cluster' not in df.columns:
+        return pd.DataFrame()
+    
+    insights = []
+    for cluster in sorted(df['Cluster'].unique()):
+        cluster_data = df[df['Cluster'] == cluster]
+        
+        insight = {
+            'Cluster': cluster,
+            'Total_Recipes': len(cluster_data),
+            'Avg_Protein': cluster_data['Protein(g)'].mean(),
+            'Avg_Carbs': cluster_data['Carbs(g)'].mean(),
+            'Avg_Fat': cluster_data['Fat(g)'].mean(),
+            'Common_Diet': cluster_data['Diet_type'].mode().iloc[0] if not cluster_data['Diet_type'].mode().empty else 'Unknown',
+            'Common_Cuisine': cluster_data['Cuisine_type'].mode().iloc[0] if not cluster_data['Cuisine_type'].mode().empty else 'Unknown',
+            'Protein_Range': f"{cluster_data['Protein(g)'].min():.1f}-{cluster_data['Protein(g)'].max():.1f}",
+            'Carbs_Range': f"{cluster_data['Carbs(g)'].min():.1f}-{cluster_data['Carbs(g)'].max():.1f}",
+            'Fat_Range': f"{cluster_data['Fat(g)'].min():.1f}-{cluster_data['Fat(g)'].max():.1f}"
+        }
+        insights.append(insight)
+    
+    return pd.DataFrame(insights)
+
     # Show % only for slices >=3% to reduce noise
     def _pct(p):
         return f"{p:.1f}%" if p >= 3 else ""
@@ -349,6 +462,14 @@ def main():
     scatter_path = plot_scatter_top5(top5, figs_dir)
     pie_path = plot_pie_recipe_distribution(df, figs_dir)
 
+    print(f"[{dt.datetime.now()}] Performing clustering analysis...")
+    cluster_path = plot_clusters(df, figs_dir)
+    cluster_insights = compute_cluster_insights(df)
+    
+    # Save cluster insights
+    if not cluster_insights.empty:
+        cluster_insights.to_csv(tables_dir / f"cluster_insights_{timestamp()}.csv", index=False)
+
     # Print highlights for quick screenshot
     print("\n=== SUMMARY (copy this into your report) ===")
     print(f"Timestamp: {dt.datetime.now()}")
@@ -364,11 +485,16 @@ def main():
     print("\nTop 5 protein‑rich recipes per diet (sample):")
     print(top5.groupby('Diet_type').head(1).to_string(index=False))
 
+    print("\nCluster Insights:")
+    if not cluster_insights.empty:
+        print(cluster_insights.to_string(index=False))
+
     print("\nSaved figures:")
     print(" -", bar_path)
     print(" -", heat_path)
     print(" -", scatter_path) 
     print(" -", pie_path)
+    print(" -", cluster_path)
     print("============================================")
 
 
