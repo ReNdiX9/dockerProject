@@ -25,3 +25,11 @@
 - Script uses Matplotlib only (assignment-friendly).
 - Handles missing numeric values by filling with the mean.
 - Safely computes engineered ratios without divide-by-zero.
+
+
+# app.py packages
+pip install flask pandas numpy matplotlib scikit-learn
+# data_analysis packages
+pip install pandas numpy matplotlib
+# Run to generate charts - python data_analysis.py ./All_Diets.csv --out ./outputs
+# run flask app python app.py
