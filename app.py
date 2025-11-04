@@ -7,6 +7,9 @@ from sklearn.cluster import KMeans
 import numpy as np
 import math
 
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
 app = Flask(__name__)
 
 @app.route('/outputs/figures/<filename>')
@@ -40,6 +43,7 @@ def index():
         'heatmap': None,
         'scatter_plot': None,
         'pie_chart': None,
+        'cluster_chart': None,
     }
 
     if figures_dir.exists():
@@ -70,6 +74,13 @@ def index():
             latest_pie = max(pie_files, key=os.path.getctime)
             ts = int(os.path.getmtime(latest_pie))
             charts['pie_chart'] = f'/outputs/figures/{latest_pie.name}?t={ts}'
+
+        # Latest cluster
+        cluster_files = list(figures_dir.glob('clusters_*.png'))
+        if cluster_files:
+            latest_cluster = max(cluster_files, key=os.path.getctime)
+            ts = int(os.path.getmtime(latest_cluster))
+            charts['cluster_chart'] = f'/outputs/figures/{latest_cluster.name}?t={ts}'
 
     # Finally render the chosen template with charts and pagination
     return render_template(
@@ -180,6 +191,84 @@ def api_recipes():
 @app.route('/clusters')
 def clusters():
     return render_template('clusters.html')
+
+@app.route('/api/clusters')
+def api_get_clusters():
+    """Return cluster information and recipes by cluster"""
+    csv_path = Path('All_Diets.csv')
+    if not csv_path.exists():
+        return jsonify({"error": "CSV not found"}), 404
+
+    df = pd.read_csv(csv_path)
+    
+    # Perform clustering
+    features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(features)
+    
+    kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
+    df['Cluster'] = kmeans.fit_predict(features_scaled)
+    
+    # Format the response
+    clusters_data = []
+    for cluster in sorted(df['Cluster'].unique()):
+        cluster_data = df[df['Cluster'] == cluster]
+        common_diet = cluster_data['Diet_type'].mode()
+        common_cuisine = cluster_data['Cuisine_type'].mode()
+        
+        clusters_data.append({
+            'cluster': int(cluster),
+            'recipe_count': len(cluster_data),
+            'avg_protein': float(cluster_data['Protein(g)'].mean()),
+            'avg_carbs': float(cluster_data['Carbs(g)'].mean()),
+            'avg_fat': float(cluster_data['Fat(g)'].mean()),
+            'common_diet': common_diet.iloc[0] if not common_diet.empty else 'Unknown',
+            'common_cuisine': common_cuisine.iloc[0] if not common_cuisine.empty else 'Unknown',
+            'description': generate_cluster_description(cluster_data)
+        })
+    
+    return jsonify({
+        'clusters': clusters_data,
+        'total_clusters': len(clusters_data)
+    })
+
+def generate_cluster_description(cluster_data):
+    """Generate a human-readable description of the cluster"""
+    avg_protein = cluster_data['Protein(g)'].mean()
+    avg_carbs = cluster_data['Carbs(g)'].mean()
+    avg_fat = cluster_data['Fat(g)'].mean()
+    
+    if avg_protein > avg_carbs and avg_protein > avg_fat:
+        return "High Protein Cluster"
+    elif avg_carbs > avg_protein and avg_carbs > avg_fat:
+        return "High Carb Cluster"
+    elif avg_fat > avg_protein and avg_fat > avg_carbs:
+        return "High Fat Cluster"
+    else:
+        return "Balanced Macronutrient Cluster"
+
+@app.route('/api/cluster-recipes/<int:cluster_id>')
+def api_get_cluster_recipes(cluster_id):
+    """Return recipes for a specific cluster"""
+    csv_path = Path('All_Diets.csv')
+    if not csv_path.exists():
+        return jsonify({"error": "CSV not found"}), 404
+
+    df = pd.read_csv(csv_path)
+    
+    # Perform clustering
+    features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(features)
+    
+    kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
+    df['Cluster'] = kmeans.fit_predict(features_scaled)
+    
+    cluster_recipes = df[df['Cluster'] == cluster_id][
+        ['Recipe_name', 'Diet_type', 'Cuisine_type', 'Protein(g)', 'Carbs(g)', 'Fat(g)']
+    ].to_dict('records')
+    
+    return jsonify(cluster_recipes)
 
 #if charts are already in outputs/figures/  run without subprocess part (win-python app.py linux python3 app.py)
 #or just do - sudo apt install python-is-python3 
