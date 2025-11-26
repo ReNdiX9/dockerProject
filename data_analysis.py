@@ -1,7 +1,6 @@
-
 #!/usr/bin/env python3
 """
-data_analysis.py — Task 1 automation for the All_Diets.csv project
+data_analysis.py — Task 1 automation with interactive Plotly charts
 
 What this script does
 ---------------------
@@ -11,35 +10,25 @@ What this script does
 4) Adds engineered metrics:
    - Protein_to_Carbs_ratio
    - Carbs_to_Fat_ratio
-5) Computes required insights:
-   - Average Protein/Carbs/Fat by Diet_type
-   - Top 5 protein‑rich recipes per Diet_type
-   - Diet_type with the highest protein content (by mean Protein(g))
-   - Most common cuisines per Diet_type
-6) Saves tidy CSV outputs and Matplotlib charts (bar, heatmap, scatter).
-7) Prints a concise summary and timestamps for your screenshots.
+5) Computes required insights and generates interactive Plotly charts
+6) Saves charts as HTML files that can be embedded in templates
 
 Usage
 -----
 python data_analysis.py /path/to/All_Diets.csv --out outputs
-
-Notes
------
-- Uses Matplotlib only (no seaborn), one chart per figure, no explicit colors.
-- Figures are saved into <out>/figures as PNG with timestamp in the filename.
-- CSV results are saved into <out>/tables.
 """
 
 import argparse
 import datetime as dt
 import sys
-import math
 from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -61,8 +50,6 @@ def timestamp() -> str:
 def read_and_normalize(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
 
-    # Normalize column names: trim and keep as-is for required names, try to map common variants
-    # Also handle possible space variations like 'Protein (g)'
     col_map = {
         "Protein (g)": "Protein(g)",
         "Carbs (g)": "Carbs(g)",
@@ -76,12 +63,10 @@ def read_and_normalize(csv_path: Path) -> pd.DataFrame:
     }
     df = df.rename(columns={c: col_map.get(c, c) for c in df.columns})
 
-    # Verify required columns exist
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
-    # Normalize Diet_type & Cuisine_type (strip, lower -> title)
     for text_col in ["Diet_type", "Cuisine_type"]:
         df[text_col] = (
             df[text_col]
@@ -89,25 +74,19 @@ def read_and_normalize(csv_path: Path) -> pd.DataFrame:
             .str.strip()
             .replace({"nan": np.nan, "none": np.nan})
         )
-        # Some rows can be lower/upper mixed; unify simple capitalization while keeping acronyms
         df[text_col] = df[text_col].apply(lambda x: x.title() if isinstance(x, str) else x)
 
-    # Coerce numeric macros (some CSVs may store them as strings)
     for num_col in ["Protein(g)", "Carbs(g)", "Fat(g)"]:
         df[num_col] = pd.to_numeric(df[num_col], errors="coerce")
 
-    # Handle missing numeric data: fill with mean (per column)
     for num_col in ["Protein(g)", "Carbs(g)", "Fat(g)"]:
         mean_val = df[num_col].mean(skipna=True)
         df[num_col] = df[num_col].fillna(mean_val)
 
-    # Replace zero fat/carbs when computing ratios (to avoid divide-by-zero later)
-    # Keep originals; we will guard division during ratio creation.
     return df
 
 
 def add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
-    # Guard divisions using np.where to avoid inf; set to NaN when denominator is 0
     carbs = df["Carbs(g)"].to_numpy()
     fat = df["Fat(g)"].to_numpy()
     protein = df["Protein(g)"].to_numpy()
@@ -121,15 +100,12 @@ def add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_insights(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    # Averages by Diet_type
     avg_macros = (
         df.groupby("Diet_type", as_index=True)[["Protein(g)", "Carbs(g)", "Fat(g)"]]
         .mean()
         .sort_index()
     )
 
-    # Top 5 protein‑rich recipes per Diet_type
-    # Sort by Protein then groupby head(5)
     top5_protein = (
         df.sort_values(["Diet_type", "Protein(g)"], ascending=[True, False])
         .groupby("Diet_type", group_keys=False)
@@ -137,7 +113,6 @@ def compute_insights(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.D
         .loc[:, ["Diet_type", "Recipe_name", "Cuisine_type", "Protein(g)", "Carbs(g)", "Fat(g)"]]
     )
 
-    # Diet_type with highest mean protein
     highest_protein_by_diet = (
         avg_macros["Protein(g)"]
         .sort_values(ascending=False)
@@ -145,7 +120,6 @@ def compute_insights(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.D
         .rename(columns={"Protein(g)": "Mean_Protein(g)"})
     )
 
-    # Most common cuisines per Diet_type (frequency)
     cuisine_counts = (
         df.groupby(["Diet_type", "Cuisine_type"])
         .size()
@@ -166,222 +140,257 @@ def save_tables(out_dir: Path, avg_macros, top5, highest, cuisines) -> None:
     cuisines.to_csv(tables_dir / f"cuisine_counts_by_diet_{ts}.csv", index=False)
 
 
-def plot_bar_avg_macros(avg_macros: pd.DataFrame, fig_dir: Path) -> Path:
-    # Make a grouped bar chart: three bars per diet (Protein, Carbs, Fat)
+def create_bar_chart(avg_macros: pd.DataFrame, fig_dir: Path) -> Path:
+    """Create interactive bar chart with Plotly"""
     diets = avg_macros.index.to_list()
-    vals = avg_macros[["Protein(g)", "Carbs(g)", "Fat(g)"]].to_numpy()
-
-    x = np.arange(len(diets))
-    width = 0.25
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-
-    ax.bar(x - width, vals[:, 0], width, label="Protein(g)")
-    ax.bar(x,         vals[:, 1], width, label="Carbs(g)")
-    ax.bar(x + width, vals[:, 2], width, label="Fat(g)")
-
-    ax.set_title("Average Macronutrients by Diet Type")
-    ax.set_xlabel("Diet Type")
-    ax.set_ylabel("Grams (g)")
-    ax.set_xticks(x)
-    ax.set_xticklabels(diets, rotation=30, ha="right")
-    ax.legend()
-    ax.grid(axis="y", linestyle="--", alpha=0.4)
-
-    fig.tight_layout()
-    out_path = fig_dir / f"bar_avg_macros_{timestamp()}.png"
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        name='Protein(g)',
+        x=diets,
+        y=avg_macros['Protein(g)'],
+        marker_color='rgb(55, 83, 109)'
+    ))
+    
+    fig.add_trace(go.Bar(
+        name='Carbs(g)',
+        x=diets,
+        y=avg_macros['Carbs(g)'],
+        marker_color='rgb(26, 118, 255)'
+    ))
+    
+    fig.add_trace(go.Bar(
+        name='Fat(g)',
+        x=diets,
+        y=avg_macros['Fat(g)'],
+        marker_color='rgb(50, 171, 96)'
+    ))
+    
+    fig.update_layout(
+        title='Average Macronutrients by Diet Type',
+        xaxis_title='Diet Type',
+        yaxis_title='Grams (g)',
+        barmode='group',
+        xaxis_tickangle=-45,
+        hovermode='x unified',
+        template='plotly_white',
+        height=500
+    )
+    
+    out_path = fig_dir / f"bar_avg_macros_{timestamp()}.html"
+    fig.write_html(str(out_path), include_plotlyjs='cdn', div_id='bar-chart')
     return out_path
 
 
-def plot_heatmap_avg_macros(avg_macros: pd.DataFrame, fig_dir: Path) -> Path:
-    # Basic heatmap using imshow (no seaborn)
+def create_heatmap(avg_macros: pd.DataFrame, fig_dir: Path) -> Path:
+    """Create interactive heatmap with Plotly"""
     data = avg_macros[["Protein(g)", "Carbs(g)", "Fat(g)"]].to_numpy()
     diets = avg_macros.index.to_list()
     nutrients = ["Protein(g)", "Carbs(g)", "Fat(g)"]
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    im = ax.imshow(data, aspect="auto")
-
-    # Tick labels
-    ax.set_xticks(np.arange(len(nutrients)))
-    ax.set_xticklabels(nutrients, rotation=0)
-    ax.set_yticks(np.arange(len(diets)))
-    ax.set_yticklabels(diets)
-
-    ax.set_title("Heatmap: Average Macros by Diet Type")
-    # Add value annotations
-    for i in range(data.shape[0]):
-        for j in range(data.shape[1]):
-            ax.text(j, i, f"{data[i, j]:.1f}", ha="center", va="center")
-
-    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    fig.tight_layout()
-    out_path = fig_dir / f"heatmap_avg_macros_{timestamp()}.png"
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
-    return out_path
-
-
-def plot_scatter_top5(top5: pd.DataFrame, fig_dir: Path) -> Path:
-    # Scatter by cuisine: x = Carbs, y = Protein, size ~ Fat
-    # Encode cuisines as integer positions along x-axis clusters per diet? Simpler: standard x/y scatter.
-    x = top5["Carbs(g)"].to_numpy()
-    y = top5["Protein(g)"].to_numpy()
-    sizes = np.clip(top5["Fat(g)"].to_numpy(), 1, None)  # ensure >0 for visibility
-    sizes = (sizes / np.nanmax(sizes)) * 300.0 + 20.0    # scale bubble sizes
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    sc = ax.scatter(x, y, s=sizes, alpha=0.7)
-
-    ax.set_title("Top 5 Protein‑Rich Recipes per Diet — Macro Distribution")
-    ax.set_xlabel("Carbs (g)")
-    ax.set_ylabel("Protein (g)")
-    ax.grid(True, linestyle="--", alpha=0.4)
-
-    # Add a few labels (Recipe_name) to reduce clutter: label the top 10 by protein
-    labeled = (
-        top5.nlargest(10, "Protein(g)")
-        .loc[:, ["Recipe_name", "Carbs(g)", "Protein(g)"]]
-        .itertuples(index=False)
-    )
-    for rname, cx, py in labeled:
-        ax.annotate(str(rname)[:30], (cx, py), xytext=(5, 5), textcoords="offset points", fontsize=8)
-
-    fig.tight_layout()
-    out_path = fig_dir / f"scatter_top5_{timestamp()}.png"
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
-    return out_path
-
-# pie chart
-def plot_pie_recipe_distribution(df: pd.DataFrame, fig_dir: Path, top_n: int = 8) -> Path:
-    """
-    Pie chart of how many recipes each Diet_type has.
-    To keep labels readable, we keep top_n categories and group the rest into 'Other'.
-    Uses Matplotlib only (no seaborn), one chart per figure, no explicit colors.
-    """
-    try:
-        # Count by Diet_type, handle missing
-        counts = (
-            df["Diet_type"]
-            .fillna("Unknown")
-            .astype(str)
-            .str.strip()
-            .replace({"": "Unknown"})
-            .value_counts()
-            .sort_values(ascending=False)
-        )
-
-        # Group small categories into "Other" to avoid label clutter
-        if len(counts) > top_n:
-            top = counts.iloc[:top_n]
-            other_sum = counts.iloc[top_n:].sum()
-            counts = top.append(pd.Series({"Other": other_sum}))
-
-        labels = counts.index.to_list()
-        sizes = counts.values
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-
-        # Show % only for slices >=3% to reduce noise
-        def _pct(p):
-            return f"{p:.1f}%" if p >= 3 else ""
-
-        wedges, texts, autotexts = ax.pie(
-            sizes,
-            labels=labels,
-            autopct=_pct,
-            startangle=90,
-        )
-        ax.set_title("Recipe Distribution by Diet Type")
-        ax.axis("equal")  # Equal aspect ratio for a circle
-
-        fig.tight_layout()
-        out_path = fig_dir / f"pie_recipe_distribution_{timestamp()}.png"
-        fig.savefig(out_path, dpi=160)
-        plt.close(fig)
-        return out_path
-        
-    except Exception as e:
-        print(f"Error generating pie chart: {e}")
-        # Return a dummy path even if there's an error
-        return fig_dir / f"pie_recipe_distribution_error_{timestamp()}.png"
-
-
-def plot_clusters(df: pd.DataFrame, fig_dir: Path) -> Path:
-    """
-    Perform K-means clustering on macronutrients and create visualization
-    """
-    # Prepare features for clustering
-    features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
     
-    # Standardize the features
+    fig = go.Figure(data=go.Heatmap(
+        z=data,
+        x=nutrients,
+        y=diets,
+        colorscale='Viridis',
+        text=np.round(data, 1),
+        texttemplate='%{text}',
+        textfont={"size": 10},
+        hovertemplate='Diet: %{y}<br>Nutrient: %{x}<br>Value: %{z:.1f}g<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title='Heatmap: Average Macros by Diet Type',
+        xaxis_title='Macronutrients',
+        yaxis_title='Diet Type',
+        template='plotly_white',
+        height=600
+    )
+    
+    out_path = fig_dir / f"heatmap_avg_macros_{timestamp()}.html"
+    fig.write_html(str(out_path), include_plotlyjs='cdn', div_id='heatmap')
+    return out_path
+
+
+def create_scatter_plot(top5: pd.DataFrame, fig_dir: Path) -> Path:
+    """Create interactive scatter plot with Plotly"""
+    fig = px.scatter(
+        top5,
+        x='Carbs(g)',
+        y='Protein(g)',
+        size='Fat(g)',
+        color='Diet_type',
+        hover_data=['Recipe_name', 'Cuisine_type'],
+        title='Top 5 Protein-Rich Recipes per Diet — Macro Distribution',
+        labels={
+            'Carbs(g)': 'Carbs (g)',
+            'Protein(g)': 'Protein (g)',
+            'Diet_type': 'Diet Type'
+        },
+        template='plotly_white',
+        height=600
+    )
+    
+    fig.update_traces(marker=dict(line=dict(width=0.5, color='DarkSlateGrey')))
+    
+    out_path = fig_dir / f"scatter_top5_{timestamp()}.html"
+    fig.write_html(str(out_path), include_plotlyjs='cdn', div_id='scatter-plot')
+    return out_path
+
+
+def create_pie_chart(df: pd.DataFrame, fig_dir: Path, top_n: int = 8) -> Path:
+    """Create interactive pie chart with Plotly"""
+    counts = (
+        df["Diet_type"]
+        .fillna("Unknown")
+        .astype(str)
+        .str.strip()
+        .replace({"": "Unknown"})
+        .value_counts()
+        .sort_values(ascending=False)
+    )
+    
+    if len(counts) > top_n:
+        top = counts.iloc[:top_n]
+        other_sum = counts.iloc[top_n:].sum()
+        counts = pd.concat([top, pd.Series({"Other": other_sum})])
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=counts.index.to_list(),
+        values=counts.values,
+        hole=0.3,
+        hovertemplate='<b>%{label}</b><br>Recipes: %{value}<br>Percentage: %{percent}<extra></extra>'
+    )])
+    
+    fig.update_layout(
+        title='Recipe Distribution by Diet Type',
+        template='plotly_white',
+        height=500
+    )
+    
+    out_path = fig_dir / f"pie_recipe_distribution_{timestamp()}.html"
+    fig.write_html(str(out_path), include_plotlyjs='cdn', div_id='pie-chart')
+    return out_path
+
+
+def create_cluster_visualization(df: pd.DataFrame, fig_dir: Path) -> Path:
+    """Create interactive cluster visualization with Plotly"""
+    features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features)
     
-    # Determine optimal number of clusters using elbow method
-    inertia = []
-    k_range = range(1, 11)
-    
-    for k in k_range:
-        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-        kmeans.fit(features_scaled)
-        inertia.append(kmeans.inertia_)
-    
-    # Use elbow method to find optimal k
     optimal_k = 4
-    
-    # Perform clustering with optimal k
     kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
     df['Cluster'] = kmeans.fit_predict(features_scaled)
     
-    # Create visualization
-    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    # Create subplots
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Protein vs Carbs', 'Protein vs Fat', 
+                       'Carbs vs Fat', 'Elbow Method'),
+        specs=[[{'type': 'scatter'}, {'type': 'scatter'}],
+               [{'type': 'scatter'}, {'type': 'scatter'}]]
+    )
     
-    # Plot 1: Protein vs Carbs colored by cluster
-    scatter1 = axes[0, 0].scatter(df['Protein(g)'], df['Carbs(g)'], 
-                                 c=df['Cluster'], cmap='viridis', alpha=0.7)
-    axes[0, 0].set_xlabel('Protein (g)')
-    axes[0, 0].set_ylabel('Carbs (g)')
-    axes[0, 0].set_title('Clusters: Protein vs Carbs')
-    plt.colorbar(scatter1, ax=axes[0, 0])
+    # Plot 1: Protein vs Carbs
+    for cluster in sorted(df['Cluster'].unique()):
+        cluster_data = df[df['Cluster'] == cluster]
+        fig.add_trace(
+            go.Scatter(
+                x=cluster_data['Protein(g)'],
+                y=cluster_data['Carbs(g)'],
+                mode='markers',
+                name=f'Cluster {cluster}',
+                marker=dict(size=6, opacity=0.7),
+                hovertemplate='<b>Cluster %{text}</b><br>Protein: %{x:.1f}g<br>Carbs: %{y:.1f}g<extra></extra>',
+                text=[cluster] * len(cluster_data),
+                showlegend=True
+            ),
+            row=1, col=1
+        )
     
-    # Plot 2: Protein vs Fat colored by cluster
-    scatter2 = axes[0, 1].scatter(df['Protein(g)'], df['Fat(g)'], 
-                                 c=df['Cluster'], cmap='viridis', alpha=0.7)
-    axes[0, 1].set_xlabel('Protein (g)')
-    axes[0, 1].set_ylabel('Fat (g)')
-    axes[0, 1].set_title('Clusters: Protein vs Fat')
-    plt.colorbar(scatter2, ax=axes[0, 1])
+    # Plot 2: Protein vs Fat
+    for cluster in sorted(df['Cluster'].unique()):
+        cluster_data = df[df['Cluster'] == cluster]
+        fig.add_trace(
+            go.Scatter(
+                x=cluster_data['Protein(g)'],
+                y=cluster_data['Fat(g)'],
+                mode='markers',
+                name=f'Cluster {cluster}',
+                marker=dict(size=6, opacity=0.7),
+                hovertemplate='<b>Cluster %{text}</b><br>Protein: %{x:.1f}g<br>Fat: %{y:.1f}g<extra></extra>',
+                text=[cluster] * len(cluster_data),
+                showlegend=False
+            ),
+            row=1, col=2
+        )
     
-    # Plot 3: Carbs vs Fat colored by cluster
-    scatter3 = axes[1, 0].scatter(df['Carbs(g)'], df['Fat(g)'], 
-                                 c=df['Cluster'], cmap='viridis', alpha=0.7)
-    axes[1, 0].set_xlabel('Carbs (g)')
-    axes[1, 0].set_ylabel('Fat (g)')
-    axes[1, 0].set_title('Clusters: Carbs vs Fat')
-    plt.colorbar(scatter3, ax=axes[1, 0])
+    # Plot 3: Carbs vs Fat
+    for cluster in sorted(df['Cluster'].unique()):
+        cluster_data = df[df['Cluster'] == cluster]
+        fig.add_trace(
+            go.Scatter(
+                x=cluster_data['Carbs(g)'],
+                y=cluster_data['Fat(g)'],
+                mode='markers',
+                name=f'Cluster {cluster}',
+                marker=dict(size=6, opacity=0.7),
+                hovertemplate='<b>Cluster %{text}</b><br>Carbs: %{x:.1f}g<br>Fat: %{y:.1f}g<extra></extra>',
+                text=[cluster] * len(cluster_data),
+                showlegend=False
+            ),
+            row=2, col=1
+        )
     
-    # Plot 4: Elbow method
-    axes[1, 1].plot(k_range, inertia, 'bo-')
-    axes[1, 1].set_xlabel('Number of Clusters (k)')
-    axes[1, 1].set_ylabel('Inertia')
-    axes[1, 1].set_title('Elbow Method for Optimal k')
-    axes[1, 1].axvline(optimal_k, color='red', linestyle='--', alpha=0.7)
+    # Plot 4: Elbow Method
+    inertia = []
+    k_range = range(1, 11)
+    for k in k_range:
+        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        km.fit(features_scaled)
+        inertia.append(km.inertia_)
     
-    plt.tight_layout()
+    fig.add_trace(
+        go.Scatter(
+            x=list(k_range),
+            y=inertia,
+            mode='lines+markers',
+            marker=dict(size=8, color='blue'),
+            line=dict(color='blue'),
+            name='Inertia',
+            showlegend=False,
+            hovertemplate='k=%{x}<br>Inertia=%{y:.2f}<extra></extra>'
+        ),
+        row=2, col=2
+    )
     
-    out_path = fig_dir / f"clusters_{timestamp()}.png"
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
+    # Add vertical line for optimal k
+    fig.add_vline(x=optimal_k, line_dash="dash", line_color="red", 
+                  annotation_text=f"Optimal k={optimal_k}", row=2, col=2)
     
-    # Save cluster information
+    # Update axes labels
+    fig.update_xaxes(title_text="Protein (g)", row=1, col=1)
+    fig.update_yaxes(title_text="Carbs (g)", row=1, col=1)
+    fig.update_xaxes(title_text="Protein (g)", row=1, col=2)
+    fig.update_yaxes(title_text="Fat (g)", row=1, col=2)
+    fig.update_xaxes(title_text="Carbs (g)", row=2, col=1)
+    fig.update_yaxes(title_text="Fat (g)", row=2, col=1)
+    fig.update_xaxes(title_text="Number of Clusters (k)", row=2, col=2)
+    fig.update_yaxes(title_text="Inertia", row=2, col=2)
+    
+    fig.update_layout(
+        title_text="Cluster Analysis",
+        height=900,
+        template='plotly_white',
+        showlegend=True
+    )
+    
+    out_path = fig_dir / f"clusters_{timestamp()}.html"
+    fig.write_html(str(out_path), include_plotlyjs='cdn', div_id='cluster-chart')
+    
+    # Save cluster summary
     cluster_summary = df.groupby('Cluster').agg({
         'Protein(g)': ['mean', 'std'],
         'Carbs(g)': ['mean', 'std'],
@@ -398,35 +407,6 @@ def plot_clusters(df: pd.DataFrame, fig_dir: Path) -> Path:
     
     return out_path
 
-def compute_cluster_insights(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute detailed insights for each cluster
-    """
-    if 'Cluster' not in df.columns:
-        return pd.DataFrame()
-    
-    insights = []
-    for cluster in sorted(df['Cluster'].unique()):
-        cluster_data = df[df['Cluster'] == cluster]
-        
-        insight = {
-            'Cluster': cluster,
-            'Total_Recipes': len(cluster_data),
-            'Avg_Protein': round(cluster_data['Protein(g)'].mean(), 2), 
-            'Avg_Carbs': round(cluster_data['Carbs(g)'].mean(), 2),      
-            'Avg_Fat': round(cluster_data['Fat(g)'].mean(), 2),          
-            'Common_Diet': cluster_data['Diet_type'].mode().iloc[0] if not cluster_data['Diet_type'].mode().empty else 'Unknown',
-            'Common_Cuisine': cluster_data['Cuisine_type'].mode().iloc[0] if not cluster_data['Cuisine_type'].mode().empty else 'Unknown',
-            'Protein_Range': f"{cluster_data['Protein(g)'].min():.1f}-{cluster_data['Protein(g)'].max():.1f}",
-            'Carbs_Range': f"{cluster_data['Carbs(g)'].min():.1f}-{cluster_data['Carbs(g)'].max():.1f}",
-            'Fat_Range': f"{cluster_data['Fat(g)'].min():.1f}-{cluster_data['Fat(g)'].max():.1f}"
-        }
-        insights.append(insight)
-    
-    return pd.DataFrame(insights)
-
-   
-
 
 def ensure_output_dirs(out_root: Path) -> Tuple[Path, Path]:
     tables = out_root / "tables"
@@ -437,7 +417,7 @@ def ensure_output_dirs(out_root: Path) -> Tuple[Path, Path]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Task 1: Dataset analysis and visualizations")
+    parser = argparse.ArgumentParser(description="Task 1: Dataset analysis with interactive Plotly visualizations")
     parser.add_argument("csv_path", type=str, help="Path to All_Diets.csv")
     parser.add_argument("--out", type=str, default="outputs", help="Output directory (default: outputs)")
     args = parser.parse_args()
@@ -462,46 +442,22 @@ def main():
     print(f"[{dt.datetime.now()}] Saving tables to: {tables_dir}")
     save_tables(out_dir, avg_macros, top5, highest, cuisines)
 
-    print(f"[{dt.datetime.now()}] Generating figures to: {figs_dir}")
-    bar_path = plot_bar_avg_macros(avg_macros, figs_dir)
-    heat_path = plot_heatmap_avg_macros(avg_macros, figs_dir)
-    scatter_path = plot_scatter_top5(top5, figs_dir)
-    pie_path = plot_pie_recipe_distribution(df, figs_dir)
+    print(f"[{dt.datetime.now()}] Generating interactive Plotly charts to: {figs_dir}")
+    bar_path = create_bar_chart(avg_macros, figs_dir)
+    heat_path = create_heatmap(avg_macros, figs_dir)
+    scatter_path = create_scatter_plot(top5, figs_dir)
+    pie_path = create_pie_chart(df, figs_dir)
+    cluster_path = create_cluster_visualization(df, figs_dir)
 
-    print(f"[{dt.datetime.now()}] Performing clustering analysis...")
-    cluster_path = plot_clusters(df, figs_dir)
-    cluster_insights = compute_cluster_insights(df)
-    
-    # Save cluster insights
-    if not cluster_insights.empty:
-        cluster_insights.to_csv(tables_dir / f"cluster_insights_{timestamp()}.csv", index=False)
-
-    # Print highlights for quick screenshot
-    print("\n=== SUMMARY (copy this into your report) ===")
+    print("\n=== SUMMARY ===")
     print(f"Timestamp: {dt.datetime.now()}")
-    print("\nDiet with highest mean Protein(g):")
-    print(highest.head(1).to_string(index=False))
-
-    print("\nAverage macros by diet (first 10):")
-    print(avg_macros.head(10).round(2).to_string())
-
-    print("\nMost common cuisines per diet (top 10 rows):")
-    print(cuisines.head(10).to_string(index=False))
-
-    print("\nTop 5 protein‑rich recipes per diet (sample):")
-    print(top5.groupby('Diet_type').head(1).to_string(index=False))
-
-    print("\nCluster Insights:")
-    if not cluster_insights.empty:
-        print(cluster_insights.to_string(index=False))
-
-    print("\nSaved figures:")
+    print("\nSaved interactive charts:")
     print(" -", bar_path)
     print(" -", heat_path)
-    print(" -", scatter_path) 
+    print(" -", scatter_path)
     print(" -", pie_path)
     print(" -", cluster_path)
-    print("============================================")
+    print("================")
 
 
 if __name__ == "__main__":

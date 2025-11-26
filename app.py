@@ -4,10 +4,6 @@ import os
 import pandas as pd
 import subprocess
 from sklearn.cluster import KMeans
-import numpy as np
-import math
-
-from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 app = Flask(__name__)
@@ -15,6 +11,25 @@ app = Flask(__name__)
 @app.route('/outputs/figures/<filename>')
 def serve_figure(filename):
     return send_from_directory('outputs/figures', filename)
+
+def get_latest_chart(figures_dir: Path, pattern: str) -> str:
+    """Get the latest HTML chart file matching the pattern"""
+    files = list(figures_dir.glob(pattern))
+    if files:
+        latest = max(files, key=os.path.getctime)
+        # Read the HTML content
+        with open(latest, 'r', encoding='utf-8') as f:
+            content = f.read()
+        # Extract just the div content (remove the full HTML wrapper if present)
+        # Plotly writes a full HTML document, we want just the chart div
+        if '<body>' in content:
+            # Extract content between body tags
+            start = content.find('<body>')
+            end = content.find('</body>')
+            if start != -1 and end != -1:
+                content = content[start+6:end].strip()
+        return content
+    return None
 
 @app.route('/')
 def index():
@@ -37,7 +52,7 @@ def index():
     else:
         template_name = 'index.html'
 
-    # Charts code (only relevant for index.html or can include in all pages)
+    # Get interactive charts HTML content
     charts = {
         'bar_chart': None,
         'heatmap': None,
@@ -47,42 +62,12 @@ def index():
     }
 
     if figures_dir.exists():
-        # Latest bar
-        bar_files = list(figures_dir.glob('bar_avg_macros_*.png'))
-        if bar_files:
-            latest_bar = max(bar_files, key=os.path.getctime)
-            ts = int(os.path.getmtime(latest_bar))
-            charts['bar_chart'] = f'/outputs/figures/{latest_bar.name}?t={ts}'
+        charts['bar_chart'] = get_latest_chart(figures_dir, 'bar_avg_macros_*.html')
+        charts['heatmap'] = get_latest_chart(figures_dir, 'heatmap_avg_macros_*.html')
+        charts['scatter_plot'] = get_latest_chart(figures_dir, 'scatter_top5_*.html')
+        charts['pie_chart'] = get_latest_chart(figures_dir, 'pie_recipe_distribution_*.html')
+        charts['cluster_chart'] = get_latest_chart(figures_dir, 'clusters_*.html')
 
-        # Latest heatmap
-        heat_files = list(figures_dir.glob('heatmap_avg_macros_*.png'))
-        if heat_files:
-            latest_heat = max(heat_files, key=os.path.getctime)
-            ts = int(os.path.getmtime(latest_heat))
-            charts['heatmap'] = f'/outputs/figures/{latest_heat.name}?t={ts}'
-
-        # Latest scatter
-        scatter_files = list(figures_dir.glob('scatter_top5_*.png'))
-        if scatter_files:
-            latest_scatter = max(scatter_files, key=os.path.getctime)
-            ts = int(os.path.getmtime(latest_scatter))
-            charts['scatter_plot'] = f'/outputs/figures/{latest_scatter.name}?t={ts}'
-
-        # Latest pie
-        pie_files = list(figures_dir.glob('pie_recipe_distribution_*.png'))
-        if pie_files:
-            latest_pie = max(pie_files, key=os.path.getctime)
-            ts = int(os.path.getmtime(latest_pie))
-            charts['pie_chart'] = f'/outputs/figures/{latest_pie.name}?t={ts}'
-
-        # Latest cluster
-        cluster_files = list(figures_dir.glob('clusters_*.png'))
-        if cluster_files:
-            latest_cluster = max(cluster_files, key=os.path.getctime)
-            ts = int(os.path.getmtime(latest_cluster))
-            charts['cluster_chart'] = f'/outputs/figures/{latest_cluster.name}?t={ts}'
-
-    # Finally render the chosen template with charts and pagination
     return render_template(
         template_name,
         charts=charts,
@@ -270,21 +255,18 @@ def api_get_cluster_recipes(cluster_id):
     
     return jsonify(cluster_recipes)
 
-#if charts are already in outputs/figures/  run without subprocess part (win-python app.py linux python3 app.py)
-#or just do - sudo apt install python-is-python3 
 if __name__ == '__main__':
     # Automatically run your data analysis script
-    csv_path = 'All_Diets.csv'  # adjust if it's in another folder
+    csv_path = 'All_Diets.csv'
     try:
-        print("Running data_analysis.py before starting Flask...")
+        print("Running data_analysis.py to generate interactive charts...")
         subprocess.run(
             ['python', 'data_analysis.py', csv_path],
             check=True
         )
-        print("Data analysis completed successfully.")
+        print("Interactive charts generated successfully.")
     except subprocess.CalledProcessError as e:
         print("Data analysis script failed:", e)
 
     # Now start Flask
     app.run(debug=True, port=5000)
-
