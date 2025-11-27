@@ -237,3 +237,21 @@ def logout():
 def security_status():
     """Show security and compliance status"""
     return render_template('security_status.html', user=current_user)
+
+@auth_bp.route('/verify-2fa-test', methods=['POST'])
+@login_required
+def verify_2fa_test():
+    """Test endpoint to verify 2FA codes"""
+    import pyotp
+    from flask import request, jsonify
+    
+    data = request.get_json()
+    code = data.get('code', '')
+    
+    if not current_user.two_factor_secret:
+        return jsonify({'valid': False, 'error': '2FA not enabled'})
+    
+    totp = pyotp.TOTP(current_user.two_factor_secret)
+    is_valid = totp.verify(code, valid_window=1)
+    
+    return jsonify({'valid': is_valid})

@@ -6,26 +6,41 @@
     <title>Nutritional Insights</title>
     <!-- Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet" />
-    <!-- Plotly.js CDN -->
+    <!--Plots-->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   </head>
   <body class="bg-gray-100">
     <header class="bg-blue-600 p-4 text-white">
-      <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+      <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+        <div class="flex items-center space-x-4">
+          {% if current_user.is_authenticated %}
+          <span class="text-sm">{{ current_user.name }}</span>
+          <a
+            href="{{ url_for('auth.security_status') }}"
+            class="text-sm bg-white text-blue-600 px-4 py-2 rounded hover:bg-gray-100"
+          >
+            Security Status
+          </a>
+          <a
+            href="{{ url_for('auth.logout') }}"
+            class="text-sm bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          >
+            Logout
+          </a>
+          {% endif %}
+        </div>
+      </div>
     </header>
 
     <main class="container mx-auto p-6">
       <section class="mb-8">
-        <h2 class="text-2xl font-semibold mb-4">Explore Interactive Nutritional Insights</h2>
-        <p class="text-gray-600 mb-4">
-          Hover over charts for detailed information. Click and drag to zoom, double-click to reset.
-        </p>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Bar Chart -->
           <div class="bg-white p-4 shadow-lg rounded-lg">
-            <h3 class="font-semibold mb-2">Average Macronutrients by Diet</h3>
-            <p class="text-sm text-gray-600 mb-3">Compare protein, carbs, and fat across different diet types.</p>
+            <h3 class="font-semibold">Bar Chart</h3>
+            <p class="text-sm text-gray-600 mb-3">Average macronutrient content by diet type.</p>
             {% if charts.bar_chart %}
             <div class="chart-container">{{ charts.bar_chart|safe }}</div>
             {% else %}
@@ -35,10 +50,8 @@
 
           <!-- Scatter Plot -->
           <div class="bg-white p-4 shadow-lg rounded-lg">
-            <h3 class="font-semibold mb-2">Protein vs Carbs Distribution</h3>
-            <p class="text-sm text-gray-600 mb-3">
-              Top protein-rich recipes with bubble size representing fat content.
-            </p>
+            <h3 class="font-semibold">Scatter Plot</h3>
+            <p class="text-sm text-gray-600 mb-3">Nutrient relationships (e.g., protein vs carbs).</p>
             {% if charts.scatter_plot %}
             <div class="chart-container">{{ charts.scatter_plot|safe }}</div>
             {% else %}
@@ -48,8 +61,8 @@
 
           <!-- Heatmap -->
           <div class="bg-white p-4 shadow-lg rounded-lg">
-            <h3 class="font-semibold mb-2">Macronutrient Heatmap</h3>
-            <p class="text-sm text-gray-600 mb-3">Visual representation of nutrient levels across diets.</p>
+            <h3 class="font-semibold">Heatmap</h3>
+            <p class="text-sm text-gray-600 mb-3">Nutrient correlations.</p>
             {% if charts.heatmap %}
             <div class="chart-container">{{ charts.heatmap|safe }}</div>
             {% else %}
@@ -59,8 +72,8 @@
 
           <!-- Pie Chart -->
           <div class="bg-white p-4 shadow-lg rounded-lg">
-            <h3 class="font-semibold mb-2">Recipe Distribution</h3>
-            <p class="text-sm text-gray-600 mb-3">Percentage breakdown of recipes by diet type.</p>
+            <h3 class="font-semibold">Pie Chart</h3>
+            <p class="text-sm text-gray-600 mb-3">Recipe distribution by diet type (top categories grouped).</p>
             {% if charts.pie_chart %}
             <div class="chart-container">{{ charts.pie_chart|safe }}</div>
             {% else %}
@@ -109,6 +122,7 @@
       </section>
 
       <section>
+        <!-- <h2 class="text-2xl font-semibold mb-4">Pagination</h2> -->
         <div class="flex justify-center gap-2 mt-4">
           <a href="{{ url_for('index', page=prev_page) }}">
             <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Previous</button>
@@ -190,6 +204,7 @@
             container.innerHTML = `<p class="text-red-500">${data.error}</p>`;
             return;
           }
+          // data shape: { "Keto": {"Protein(g)":..., "Carbs(g)":..., "Fat(g)":...}, ... }
 
           const keys = new Set();
           Object.values(data).forEach((row) => {

@@ -1,19 +1,32 @@
 from flask import Flask, render_template, send_from_directory, jsonify, request
+from flask_login import login_required, current_user
 from pathlib import Path
 import os
 import pandas as pd
 import subprocess
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from dotenv import load_dotenv
+
+# Import authentication module
+from auth import auth_bp, init_auth
+
+load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-this')
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-@app.route('/outputs/figures/<filename>')
-def serve_figure(filename):
-    return send_from_directory('outputs/figures', filename)
+# Initialize authentication
+init_auth(app)
+
+# Register authentication blueprint
+app.register_blueprint(auth_bp, url_prefix='/auth')
 
 def get_latest_chart(figures_dir: Path, pattern: str) -> str:
-    """Get the latest HTML chart file matching the pattern"""
+    """Get the latest HTML chart file matching the pattern and return its content"""
     files = list(figures_dir.glob(pattern))
     if files:
         latest = max(files, key=os.path.getctime)
@@ -21,9 +34,7 @@ def get_latest_chart(figures_dir: Path, pattern: str) -> str:
         with open(latest, 'r', encoding='utf-8') as f:
             content = f.read()
         # Extract just the div content (remove the full HTML wrapper if present)
-        # Plotly writes a full HTML document, we want just the chart div
         if '<body>' in content:
-            # Extract content between body tags
             start = content.find('<body>')
             end = content.find('</body>')
             if start != -1 and end != -1:
@@ -31,7 +42,13 @@ def get_latest_chart(figures_dir: Path, pattern: str) -> str:
         return content
     return None
 
+@app.route('/outputs/figures/<filename>')
+@login_required
+def serve_figure(filename):
+    return send_from_directory('outputs/figures', filename)
+
 @app.route('/')
+@login_required
 def index():
     figures_dir = Path('outputs/figures')
 
@@ -52,7 +69,7 @@ def index():
     else:
         template_name = 'index.html'
 
-    # Get interactive charts HTML content
+    # Get interactive charts HTML content (NOT PNG!)
     charts = {
         'bar_chart': None,
         'heatmap': None,
@@ -62,6 +79,7 @@ def index():
     }
 
     if figures_dir.exists():
+        # Load HTML charts instead of PNG
         charts['bar_chart'] = get_latest_chart(figures_dir, 'bar_avg_macros_*.html')
         charts['heatmap'] = get_latest_chart(figures_dir, 'heatmap_avg_macros_*.html')
         charts['scatter_plot'] = get_latest_chart(figures_dir, 'scatter_top5_*.html')
@@ -74,11 +92,13 @@ def index():
         page=page,
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages
+        total_pages=total_pages,
+        user=current_user
     )
 
 
 @app.route('/api/diets')
+@login_required
 def api_get_diets():
     """Return normalized, unique diet types from the raw CSV."""
     csv_path = Path('All_Diets.csv')
@@ -101,6 +121,7 @@ def api_get_diets():
     return jsonify(sorted(diets))
 
 @app.route('/api/avg-macros')
+@login_required
 def api_get_avg_macros():
     """Return averages from the latest generated avg_macros CSV."""
     tables_dir = Path('outputs/tables')
@@ -123,15 +144,14 @@ def api_get_avg_macros():
     return jsonify(result)
 
 @app.route('/nutritional')
+@login_required
 def nutritional():
-    return render_template('nutritional.html')
+    return render_template('nutritional.html', user=current_user)
 
 @app.route('/api/nutritional-insight')
+@login_required
 def api_nutritional_insight():
-    """
-    Return average Protein, Carbs, Fat grouped by Diet_type or Cuisine_type.
-    Query param: group=Diet_type or group=Cuisine_type
-    """
+    """Return average Protein, Carbs, Fat grouped by Diet_type or Cuisine_type."""
     csv_path = Path('All_Diets.csv')
     if not csv_path.exists():
         return jsonify({"error": "CSV not found"}), 404
@@ -142,21 +162,19 @@ def api_nutritional_insight():
     if group_by not in df.columns:
         return jsonify({"error": f"Invalid group: {group_by}"}), 400
 
-    # Calculate averages
     avg_df = df.groupby(group_by)[['Protein(g)', 'Carbs(g)', 'Fat(g)']].mean().round(2)
     result = avg_df.to_dict(orient='index')
     return jsonify(result)
 
 @app.route('/recipes')
+@login_required
 def recipes():
-    return render_template('recipes.html')
+    return render_template('recipes.html', user=current_user)
 
 @app.route('/api/recipes')
+@login_required
 def api_recipes():
-    """
-    Return recipes filtered by diet and/or cuisine.
-    Query params: diet=<diet_name>, cuisine=<cuisine_name>
-    """
+    """Return recipes filtered by diet and/or cuisine."""
     csv_path = Path('All_Diets.csv')
     if not csv_path.exists():
         return jsonify({"error": "CSV not found"}), 404
@@ -174,10 +192,12 @@ def api_recipes():
     return jsonify(df.to_dict(orient='records'))
 
 @app.route('/clusters')
+@login_required
 def clusters():
-    return render_template('clusters.html')
+    return render_template('clusters.html', user=current_user)
 
 @app.route('/api/clusters')
+@login_required
 def api_get_clusters():
     """Return cluster information and recipes by cluster"""
     csv_path = Path('All_Diets.csv')
@@ -186,7 +206,6 @@ def api_get_clusters():
 
     df = pd.read_csv(csv_path)
     
-    # Perform clustering
     features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features)
@@ -194,7 +213,6 @@ def api_get_clusters():
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     df['Cluster'] = kmeans.fit_predict(features_scaled)
     
-    # Format the response
     clusters_data = []
     for cluster in sorted(df['Cluster'].unique()):
         cluster_data = df[df['Cluster'] == cluster]
@@ -233,6 +251,7 @@ def generate_cluster_description(cluster_data):
         return "Balanced Macronutrient Cluster"
 
 @app.route('/api/cluster-recipes/<int:cluster_id>')
+@login_required
 def api_get_cluster_recipes(cluster_id):
     """Return recipes for a specific cluster"""
     csv_path = Path('All_Diets.csv')
@@ -241,7 +260,6 @@ def api_get_cluster_recipes(cluster_id):
 
     df = pd.read_csv(csv_path)
     
-    # Perform clustering
     features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']].copy()
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features)
@@ -255,11 +273,12 @@ def api_get_cluster_recipes(cluster_id):
     
     return jsonify(cluster_recipes)
 
+
 if __name__ == '__main__':
-    # Automatically run your data analysis script
+    # Run data analysis script to generate interactive HTML charts
     csv_path = 'All_Diets.csv'
     try:
-        print("Running data_analysis.py to generate interactive charts...")
+        print("Running data_analysis.py to generate interactive Plotly charts...")
         subprocess.run(
             ['python', 'data_analysis.py', csv_path],
             check=True
@@ -268,5 +287,4 @@ if __name__ == '__main__':
     except subprocess.CalledProcessError as e:
         print("Data analysis script failed:", e)
 
-    # Now start Flask
     app.run(debug=True, port=5000)

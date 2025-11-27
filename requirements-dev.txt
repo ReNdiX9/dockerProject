@@ -1,16 +1,41 @@
 flake8==7.0.0
+# ===================================
+# Flask Nutritional Insights App
+# Complete Dependencies List
+# ===================================
+
 # Flask Web Framework
 Flask>=3.0.0
+python-dotenv>=1.0.0
 
-# Data Processing
+# Authentication & Security
+Flask-Login>=0.6.3
+Flask-OAuthlib>=0.9.6
+authlib>=1.3.0
+pyotp>=2.9.0
+qrcode>=7.4.2
+Pillow>=10.0.0
+Flask-SQLAlchemy>=3.0.0
+Werkzeug>=3.0.0
+
+# Data Processing & Analysis
 pandas>=2.0.0
 numpy>=1.24.0
 
 # Machine Learning
 scikit-learn>=1.3.0
 
-# Interactive Visualizations (NEW - replaces matplotlib)
+# Interactive Visualizations (PRIMARY)
 plotly>=5.18.0
 
-# Optional but recommended
-python-dotenv>=1.0.0  # For environment variables
+# Static Visualizations (BACKUP - Optional)
+# Uncomment if you want matplotlib as backup
+# matplotlib>=3.7.0
+# seaborn>=0.12.0
+
+# Development Tools (Optional)
+# Uncomment for development features
+# flask-cors>=4.0.0  # Cross-Origin Resource Sharing
+# pytest>=7.4.0      # Testing framework
+# black>=23.0.0      # Code formatter
+# flake8>=6.0.0      # Linter
