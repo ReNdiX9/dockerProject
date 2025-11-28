@@ -1,16 +1,4 @@
 
-# Task 1 Runner (All_Diets.csv)
-
-**How to use (in your Azure Ubuntu VM):**
-1. Put `All_Diets.csv` somewhere on disk (e.g., `~/data/All_Diets.csv`).
-2. Install deps if needed:
-   ```bash
-   python3 -m pip install pandas matplotlib numpy
-   ```
-3. Run:
-   ```bash
-   python3 data_analysis.py ~/data/All_Diets.csv --out outputs
-   ```
 
 **What you get:**
 - `outputs/tables/*.csv` with:
@@ -33,3 +21,17 @@ pip install flask pandas numpy matplotlib scikit-learn
 pip install pandas numpy matplotlib
 # Run to generate charts - python data_analysis.py ./All_Diets.csv --out ./outputs
 # run flask app python app.py
+
+/////////
+
+# Installation Command: 
+pip install flask python-dotenv flask-login flask-oauthlib authlib pyotp qrcode Pillow flask-sqlalchemy werkzeug pandas numpy scikit-learn plotly --break-system-packages
+
+Or use the requirements file:
+pip install -r requirements_complete.txt --break-system-packages
+
+# Generate charts
+python data_analysis.py All_Diets.csv
+
+#Run 
+python app.py
