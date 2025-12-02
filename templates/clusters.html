@@ -1,222 +1,267 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Recipe Clusters</title>
-    <!-- Tailwind CSS CDN -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
-  </head>
-  <body class="bg-gray-100 flex flex-col min-h-screen">
-    <header class="bg-blue-600 p-4 text-white">
-      <h1 class="text-3xl font-semibold">Recipe Clusters</h1>
-    </header>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recipe Clusters</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+  <header class="bg-blue-600 p-4 text-white">
+    <h1 class="text-3xl font-semibold">Recipe Clusters</h1>
+  </header>
 
-    <main class="flex-grow container mx-auto p-6 flex flex-col justify-between">
-      <!-- Cluster Visualization Section -->
-      <section id="cluster-section" class="mb-6">
-        <h2 class="text-2xl font-semibold mb-4">Cluster Analysis</h2>
-        
-        <!-- Cluster Image -->
-        <div class="bg-white p-4 rounded-lg shadow mb-6">
-          {% if charts.cluster_chart %}
-            <img src="{{ charts.cluster_chart }}" alt="Cluster Analysis" class="w-full max-w-4xl mx-auto rounded">
-          {% else %}
-            <div class="text-center text-gray-500 py-8">
-              <p>No cluster visualization found.</p>
-              <p class="text-sm mt-2">Run the data analysis first to generate clusters.</p>
+  <main class="flex-grow container mx-auto p-6">
+    <section id="cluster-section" class="mb-6">
+      <h2 class="text-2xl font-semibold mb-4">Cluster Analysis</h2>
+
+      <!-- Plotly Chart -->
+      <div class="bg-white p-4 rounded-lg shadow mb-6">
+        <div id="plotly-cluster-chart" class="w-full max-w-4xl mx-auto rounded h-[500px]"></div>
+      </div>
+
+      <!-- Cluster Summary -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-3">Cluster Summary</h3>
+        <div id="clusters-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="text-center text-gray-500 py-4">Loading cluster data...</div>
+        </div>
+      </div>
+
+      <!-- Cluster Recipes Explorer -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-3">Explore Recipes by Cluster</h3>
+        <div class="flex items-center gap-2 mb-4">
+          <select id="cluster-select" class="border rounded px-3 py-2 text-gray-700">
+            <option value="">Select a cluster...</option>
+          </select>
+          <button id="clear-cluster" class="bg-gray-400 text-white py-2 px-4 rounded hover:bg-gray-500 transition">Clear</button>
+        </div>
+        <div id="cluster-recipes-result" class="text-gray-800"></div>
+      </div>
+    </section>
+
+    <!-- PAGINATION: Matches other pages -->
+    <section>
+      <div class="flex justify-center gap-2 mt-4">
+        <a href="{{ url_for('index', page=3) }}">
+          <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
+            Previous
+          </button>
+        </a>
+
+        {% for i in range(1, 5) %}
+        <a href="{{ url_for('index', page=i) if i != 4 else url_for('clusters') }}">
+          <button
+            class="px-3 py-1 {{ 4 == i and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
+          >
+            {{ i }}
+          </button>
+        </a>
+        {% endfor %}
+
+        <button disabled class="px-3 py-1 bg-gray-300 rounded text-gray-400 cursor-not-allowed">
+          Next
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+    <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
+  </footer>
+
+  <script>
+    async function loadClustersSummary() {
+      try {
+        const res = await fetch('/api/clusters');
+        const data = await res.json();
+        const summaryContainer = document.getElementById('clusters-summary');
+        const clusterSelect = document.getElementById('cluster-select');
+
+        if (data.error) {
+          summaryContainer.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+          return;
+        }
+
+        if (!data.clusters || data.clusters.length === 0) {
+          summaryContainer.innerHTML = '<div class="text-center text-gray-500 py-4">No cluster data available</div>';
+          return;
+        }
+
+        // Plotly chart
+        const labels = data.clusters.map(c => `Cluster ${c.cluster}`);
+        const protein = data.clusters.map(c => c.avg_protein);
+        const carbs = data.clusters.map(c => c.avg_carbs);
+        const fat = data.clusters.map(c => c.avg_fat);
+
+        Plotly.newPlot('plotly-cluster-chart', [
+  {
+    x: labels,
+    y: protein.map(v => Number(v).toFixed(2)),
+    name: 'Protein',
+    type: 'bar',
+    hovertemplate: 'Protein: %{y:.2f}g<extra></extra>',
+  },
+  {
+    x: labels,
+    y: carbs.map(v => Number(v).toFixed(2)),
+    name: 'Carbs',
+    type: 'bar',
+    hovertemplate: 'Carbs: %{y:.2f}g<extra></extra>',
+  },
+  {
+    x: labels,
+    y: fat.map(v => Number(v).toFixed(2)),
+    name: 'Fat',
+    type: 'bar',
+    hovertemplate: 'Fat: %{y:.2f}g<extra></extra>',
+  }
+], {
+  barmode: 'group',
+  title: 'Average Nutrients per Cluster',
+  margin: { t: 40 }
+});
+
+
+        summaryContainer.innerHTML = '';
+        clusterSelect.innerHTML = '<option value="">Select a cluster...</option>';
+
+        data.clusters.forEach(cluster => {
+          const card = document.createElement('div');
+          card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-md transition';
+          card.innerHTML = `
+            <h4 class="text-lg font-semibold text-blue-600 mb-2">Cluster ${cluster.cluster}</h4>
+            <p class="text-sm text-gray-600 mb-3">${cluster.description}</p>
+            <div class="space-y-1 text-sm">
+              <p><span class="font-medium">Recipes:</span> ${cluster.recipe_count}</p>
+              <p><span class="font-medium">Avg Protein:</span> ${cluster.avg_protein.toFixed(1)}g</p>
+              <p><span class="font-medium">Avg Carbs:</span> ${cluster.avg_carbs.toFixed(1)}g</p>
+              <p><span class="font-medium">Avg Fat:</span> ${cluster.avg_fat.toFixed(1)}g</p>
+              <p><span class="font-medium">Common Diet:</span> ${cluster.common_diet}</p>
+              <p><span class="font-medium">Common Cuisine:</span> ${cluster.common_cuisine}</p>
             </div>
-          {% endif %}
-        </div>
-
-        <!-- Cluster Summary -->
-        <div class="mb-6">
-          <h3 class="text-xl font-semibold mb-3">Cluster Summary</h3>
-          <div id="clusters-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="text-center text-gray-500 py-4">Loading cluster data...</div>
-          </div>
-        </div>
-
-        <!-- Cluster Recipes Explorer -->
-        <div class="mb-6">
-          <h3 class="text-xl font-semibold mb-3">Explore Recipes by Cluster</h3>
-          <div class="flex items-center gap-2 mb-4">
-            <select 
-              id="cluster-select" 
-              class="border rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select a cluster...</option>
-            </select>
-            <button
-              id="clear-cluster"
-              class="bg-gray-400 text-white py-2 px-4 rounded hover:bg-gray-500 transition"
-            >
-              Clear
-            </button>
-          </div>
-
-          <div id="cluster-recipes-result" class="text-gray-800"></div>
-        </div>
-      </section>
-
-      <!-- Pagination -->
-      <section>
-        <div class="flex justify-center gap-2 mt-4">
-          <a href="{{ url_for('index', page=prev_page) }}">
-            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
-              Previous
-            </button>
-          </a>
-
-          {% for i in range(1, total_pages+1) %}
-          <a href="{{ url_for('index', page=i) }}">
-            <button
-              class="px-3 py-1 {{ i == page and 'bg-blue-600 text-white' or 'bg-gray-300 hover:bg-gray-400' }} rounded"
-            >
-              {{ i }}
-            </button>
-          </a>
-          {% endfor %}
-
-          <a href="{{ url_for('index', page=next_page) }}">
-            <button class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">
-              Next
-            </button>
-          </a>
-        </div>
-      </section>
-    </main>
-
-    <footer class="bg-blue-600 p-4 text-white text-center mt-10">
-      <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
-    </footer>
-
-    <script>
-      // Load clusters summary
-      async function loadClustersSummary() {
-        try {
-          const res = await fetch('/api/clusters');
-          const data = await res.json();
-          const summaryContainer = document.getElementById('clusters-summary');
-          const clusterSelect = document.getElementById('cluster-select');
-
-          if (data.error) {
-            summaryContainer.innerHTML = `<p class="text-red-500">${data.error}</p>`;
-            return;
-          }
-
-          if (!data.clusters || data.clusters.length === 0) {
-            summaryContainer.innerHTML = '<div class="text-center text-gray-500 py-4">No cluster data available</div>';
-            return;
-          }
-
-          summaryContainer.innerHTML = '';
-          clusterSelect.innerHTML = '<option value="">Select a cluster...</option>';
-
-          data.clusters.forEach(cluster => {
-            // Create cluster card
-            const clusterCard = document.createElement('div');
-            clusterCard.className = 'bg-white p-4 rounded-lg shadow hover:shadow-md transition';
-            clusterCard.innerHTML = `
-              <h4 class="text-lg font-semibold text-blue-600 mb-2">Cluster ${cluster.cluster}</h4>
-              <p class="text-sm text-gray-600 mb-3">${cluster.description}</p>
-              <div class="space-y-1 text-sm">
-                <p><span class="font-medium">Recipes:</span> ${cluster.recipe_count}</p>
-                <p><span class="font-medium">Avg Protein:</span> ${cluster.avg_protein.toFixed(1)}g</p>
-                <p><span class="font-medium">Avg Carbs:</span> ${cluster.avg_carbs.toFixed(1)}g</p>
-                <p><span class="font-medium">Avg Fat:</span> ${cluster.avg_fat.toFixed(1)}g</p>
-                <p><span class="font-medium">Common Diet:</span> ${cluster.common_diet}</p>
-                <p><span class="font-medium">Common Cuisine:</span> ${cluster.common_cuisine}</p>
-              </div>
-            `;
-            summaryContainer.appendChild(clusterCard);
-
-            // Add to select dropdown
-            const option = document.createElement('option');
-            option.value = cluster.cluster;
-            option.textContent = `Cluster ${cluster.cluster} - ${cluster.description} (${cluster.recipe_count} recipes)`;
-            clusterSelect.appendChild(option);
-          });
-        } catch (error) {
-          console.error('Error loading clusters:', error);
-          document.getElementById('clusters-summary').innerHTML = 
-            '<div class="text-center text-red-500 py-4">Error loading cluster data</div>';
-        }
-      }
-
-      // Load recipes for selected cluster
-      async function loadClusterRecipes(clusterId) {
-        const container = document.getElementById('cluster-recipes-result');
-        
-        try {
-          const res = await fetch(`/api/cluster-recipes/${clusterId}`);
-          const recipes = await res.json();
-
-          if (!recipes || recipes.length === 0) {
-            container.innerHTML = '<p class="text-gray-500">No recipes found for this cluster.</p>';
-            return;
-          }
-
-          let html = `
-            <div class="overflow-x-auto">
-              <table class="min-w-full bg-white shadow rounded">
-                <thead>
-                  <tr>
-                    <th class="px-4 py-2 border-b">Recipe</th>
-                    <th class="px-4 py-2 border-b">Diet</th>
-                    <th class="px-4 py-2 border-b">Cuisine</th>
-                    <th class="px-4 py-2 border-b">Protein(g)</th>
-                    <th class="px-4 py-2 border-b">Carbs(g)</th>
-                    <th class="px-4 py-2 border-b">Fat(g)</th>
-                  </tr>
-                </thead>
-                <tbody>
           `;
+          summaryContainer.appendChild(card);
 
-          recipes.forEach(recipe => {
-            html += `
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-2 border-b">${recipe.Recipe_name || 'N/A'}</td>
-                <td class="px-4 py-2 border-b">${recipe.Diet_type || 'N/A'}</td>
-                <td class="px-4 py-2 border-b">${recipe.Cuisine_type || 'N/A'}</td>
-                <td class="px-4 py-2 border-b">${recipe['Protein(g)'] !== undefined ? recipe['Protein(g)'] : 'N/A'}</td>
-                <td class="px-4 py-2 border-b">${recipe['Carbs(g)'] !== undefined ? recipe['Carbs(g)'] : 'N/A'}</td>
-                <td class="px-4 py-2 border-b">${recipe['Fat(g)'] !== undefined ? recipe['Fat(g)'] : 'N/A'}</td>
-              </tr>
-            `;
-          });
+          const option = document.createElement('option');
+          option.value = cluster.cluster;
+          option.textContent = `Cluster ${cluster.cluster} - ${cluster.description}`;
+          clusterSelect.appendChild(option);
+        });
 
-          html += `</tbody></table></div>`;
-          container.innerHTML = html;
-        } catch (error) {
-          console.error('Error loading cluster recipes:', error);
-          container.innerHTML = '<p class="text-red-500">Failed to load recipes.</p>';
-        }
+      } catch (error) {
+        console.error('Error loading clusters:', error);
+        document.getElementById('clusters-summary').innerHTML =
+          '<div class="text-center text-red-500 py-4">Error loading cluster data</div>';
       }
+    }
 
-      // Event listeners
-      document.addEventListener('DOMContentLoaded', function() {
-        loadClustersSummary();
+    async function loadClusterRecipes(clusterId) {
+      const container = document.getElementById('cluster-recipes-result');
+      try {
+        const res = await fetch(`/api/cluster-recipes/${clusterId}`);
+        const recipes = await res.json();
 
-        // Cluster selection
-        document.getElementById('cluster-select').addEventListener('change', function() {
-          const clusterId = this.value;
-          if (clusterId) {
-            loadClusterRecipes(clusterId);
-          } else {
-            document.getElementById('cluster-recipes-result').innerHTML = '';
-          }
+        if (!recipes || recipes.length === 0) {
+          container.innerHTML = '<p class="text-gray-500">No recipes found for this cluster.</p>';
+          return;
+        }
+
+        let html = `
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white shadow rounded">
+            <thead>
+              <tr>
+                <th class="px-4 py-2 border-b">Recipe</th>
+                <th class="px-4 py-2 border-b">Diet</th>
+                <th class="px-4 py-2 border-b">Cuisine</th>
+                <th class="px-4 py-2 border-b">Protein(g)</th>
+                <th class="px-4 py-2 border-b">Carbs(g)</th>
+                <th class="px-4 py-2 border-b">Fat(g)</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        recipes.forEach(recipe => {
+          html += `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 border-b">${recipe.Recipe_name || 'N/A'}</td>
+              <td class="px-4 py-2 border-b">${recipe.Diet_type || 'N/A'}</td>
+              <td class="px-4 py-2 border-b">${recipe.Cuisine_type || 'N/A'}</td>
+              <td class="px-4 py-2 border-b">${recipe['Protein(g)'] ?? 'N/A'}</td>
+              <td class="px-4 py-2 border-b">${recipe['Carbs(g)'] ?? 'N/A'}</td>
+              <td class="px-4 py-2 border-b">${recipe['Fat(g)'] ?? 'N/A'}</td>
+            </tr>
+          `;
         });
 
-        // Clear button
-        document.getElementById('clear-cluster').addEventListener('click', function() {
-          document.getElementById('cluster-select').value = '';
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
+      } catch (error) {
+        console.error('Error loading cluster recipes:', error);
+        container.innerHTML = '<p class="text-red-500">Failed to load recipes.</p>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadClustersSummary();
+
+      document.getElementById('cluster-select').addEventListener('change', function () {
+        const clusterId = this.value;
+        if (clusterId) {
+          loadClusterRecipes(clusterId);
+        } else {
           document.getElementById('cluster-recipes-result').innerHTML = '';
-        });
+        }
       });
-    </script>
-  </body>
+
+      document.getElementById('clear-cluster').addEventListener('click', function () {
+        document.getElementById('cluster-select').value = '';
+        document.getElementById('cluster-recipes-result').innerHTML = '';
+      });
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+  const clusterChart = document.getElementById("plotly-cluster-chart");
+  const summaryContainer = document.getElementById("clusters-summary");
+  const clusterSelect = document.getElementById("cluster-select");
+  const recipeResult = document.getElementById("cluster-recipes-result");
+
+  const clustersCleared = sessionStorage.getItem("clustersCheck");
+  if (clustersCleared === "false") {
+    Plotly.purge(clusterChart);
+    clusterChart.innerHTML = `
+      <p class="text-red-500 text-sm">
+        Cluster chart removed. Please regenerate clusters.
+      </p>
+    `;
+    summaryContainer.innerHTML = `<p class="text-red-500">Cluster summary removed.</p>`;
+    clusterSelect.disabled = true;
+    recipeResult.innerHTML = `<p class="text-red-500">Recipe data cleared.</p>`;
+    return;
+  }
+
+  // If not cleared, proceed to load
+  loadClustersSummary();
+
+  document.getElementById('cluster-select').addEventListener('change', function () {
+    const clusterId = this.value;
+    if (clusterId) {
+      loadClusterRecipes(clusterId);
+    } else {
+      recipeResult.innerHTML = '';
+    }
+  });
+
+  document.getElementById('clear-cluster').addEventListener('click', function () {
+    clusterSelect.value = '';
+    recipeResult.innerHTML = '';
+  });
+});
+
+  </script>
+</body>
 </html>

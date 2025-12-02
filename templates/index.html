@@ -307,47 +307,69 @@
 
 
       //Resource Cleanup
-      let chartsCheck = sessionStorage.getItem("chartsCheck");
+     let chartsCheck = sessionStorage.getItem("chartsCheck");
 
-      if (chartsCheck === null) {
-        chartsCheck = "true";
-        sessionStorage.setItem("chartsCheck", "true");
-      }
+if (chartsCheck === null) {
+  chartsCheck = "true";
+  sessionStorage.setItem("chartsCheck", "true");
+}
 
-      function clearAllCharts() {
-        sessionStorage.setItem("chartsCheck", "false");
-        chartsCheck = "false";
+function clearAllCharts() {
+  sessionStorage.setItem("chartsCheck", "false");
+  sessionStorage.setItem("clustersCheck", "false");
+  chartsCheck = "false";
 
-        const chartDivs = document.querySelectorAll(".chart-container");
+  const chartDivs = document.querySelectorAll(".chart-container");
 
-        chartDivs.forEach((div) => {
-          Plotly.purge(div);
-          div.innerHTML = `
-        <p class="text-black text-sm">
-          Data Cleared, Chart not found.
+  chartDivs.forEach((div) => {
+    Plotly.purge(div);
+    div.innerHTML = `
+      <p class="text-red-500 text-sm font-medium">
+        Chart not found. Please run <code>data_analysis.py</code> first.
+      </p>
+    `;
+  });
+
+  const clusterChart = document.getElementById("cluster-chart");
+  if (clusterChart) {
+    Plotly.purge(clusterChart);
+    clusterChart.innerHTML = `
+      <p class="text-red-500 text-sm font-medium">
+        Chart not found. Please run <code>data_analysis.py</code> first.
+      </p>
+    `;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const chartDivs = document.querySelectorAll(".chart-container");
+
+  if (chartsCheck === "false") {
+    chartDivs.forEach((div) => {
+      Plotly.purge(div);
+      div.innerHTML = `
+        <p class="text-red-500 text-sm font-medium">
+          Chart not found. Please run <code>data_analysis.py</code> first.
         </p>
       `;
-        });
-      }
+    });
 
-      document.addEventListener("DOMContentLoaded", () => {
-        const chartDivs = document.querySelectorAll(".chart-container");
-
-        if (chartsCheck === "false") {
-          chartDivs.forEach((div) => {
-            Plotly.purge(div);
-            div.innerHTML = `
-        <p class="text-red-500 text-sm">
-          Chart not found. Please run data_analysis.py first.
+    const clusterChart = document.getElementById("cluster-chart");
+    if (clusterChart) {
+      Plotly.purge(clusterChart);
+      clusterChart.innerHTML = `
+        <p class="text-red-500 text-sm font-medium">
+          Chart not found. Please run <code>data_analysis.py</code> first.
         </p>
       `;
-          });
-        }
+    }
+  }
 
-        chartDivs.forEach((div) => {
-          div.style.visibility = "visible";
-        });
-      });
+  chartDivs.forEach((div) => {
+    div.style.visibility = "visible";
+  });
+});
+
     </script>
   </body>
 </html>

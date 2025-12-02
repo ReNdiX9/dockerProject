@@ -416,6 +416,29 @@ def ensure_output_dirs(out_root: Path) -> Tuple[Path, Path]:
     return tables, figs
 
 
+def generate_cluster_figure():
+    df = read_and_normalize(Path("All_Diets.csv"))
+    df = add_engineered_features(df)
+
+    features = df[['Protein(g)', 'Carbs(g)', 'Fat(g)']]
+    features_scaled = StandardScaler().fit_transform(features)
+    
+    kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
+    df['Cluster'] = kmeans.fit_predict(features_scaled)
+
+    fig = px.scatter_3d(
+        df,
+        x="Protein(g)",
+        y="Carbs(g)",
+        z="Fat(g)",
+        color=df["Cluster"].astype(str),
+        hover_data=["Recipe_name", "Cuisine_type"],
+        title="3D Cluster Visualization of Recipes",
+    )
+    fig.update_layout(template="plotly_white", height=600)
+    return fig
+
+
 def main():
     parser = argparse.ArgumentParser(description="Task 1: Dataset analysis with interactive Plotly visualizations")
     parser.add_argument("csv_path", type=str, help="Path to All_Diets.csv")
@@ -462,3 +485,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
